@@ -121,3 +121,5 @@ Score weights: sleep 30%, activity 30%, recovery/cardio 25%, goal consistency 15
 5. Legacy XLS selected-sheet parser and historical backfill precedence.
 6. Initial summary, goals, dashboard, scores, trends, and deterministic suggestions.
 7. Production hardening, deletion flows, diagnostics, smoke tests, and Vercel deployment runbook.
+
+For the executable milestone sequence, local test gates, and user verification pauses, see [`docs/IMPLEMENTATION_STEPS.md`](docs/IMPLEMENTATION_STEPS.md). The implementation thread must complete one milestone, show its local evidence, and wait for user approval before starting the next important milestone.
