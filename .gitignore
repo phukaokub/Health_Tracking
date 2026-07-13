@@ -1,0 +1,33 @@
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+!.env.local.example
+
+# Go
+bin/
+coverage.out
+
+# Supabase local state
+.temp/
+supabase/.branches/
+
+# Personal data and exports
+HUAWEI_HEALTH_*/
+*.jsonl
+*.zip
+*.xls
+*.xlsx
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
