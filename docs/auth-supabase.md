@@ -5,8 +5,9 @@ Step 2 uses Supabase Auth for email/password sign-up and optional Google OAuth. 
 ## Local start
 
 ```text
-supabase start
-supabase db reset
+npx supabase --help
+npx supabase start
+npx supabase db reset
 ```
 
 The local Auth site URL is `http://localhost:3000`, and the OAuth callback route is `http://localhost:3000/auth/callback`.
@@ -16,8 +17,21 @@ The local Auth site URL is `http://localhost:3000`, and the OAuth callback route
 Set these values in `apps/web/.env.local` when the local Supabase stack is running:
 
 ```text
-NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<local anon key from supabase start>
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable key from npx supabase status>
+```
+
+The included local configuration requires email confirmation. After sign-up, open Mailpit at `http://127.0.0.1:54324`, open the confirmation message, and follow its link to finish local sign-in. Restart the local stack after changing this setting with `npx supabase stop` then `npx supabase start`.
+
+The follow-up `grant_profiles_data_api_access` migration gives the `authenticated` role table access; the existing RLS policies still limit each user to their own profile row.
+
+Run web commands from `apps/web`, because this repository does not have a root
+Node package:
+
+```text
+cd apps/web
+npm install
+npm run dev
 ```
 
 ## Google OAuth provider

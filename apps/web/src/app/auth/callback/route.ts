@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server";
 
+import { createClient } from "@/lib/supabase/server";
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const next = url.searchParams.get("next") ?? "/account";
-  return NextResponse.redirect(new URL(next, url.origin));
+  const code = url.searchParams.get("code");
+  const next = url.searchParams.get("next");
+  const destination = next?.startsWith("/") && !next.startsWith("//") ? next : "/account";
+
+  if (!code) return NextResponse.redirect(new URL("/auth/sign-in?error=auth-callback", url.origin));
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) return NextResponse.redirect(new URL("/auth/sign-in?error=auth-callback", url.origin));
+
+  return NextResponse.redirect(new URL(destination, url.origin));
 }

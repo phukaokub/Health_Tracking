@@ -27,7 +27,7 @@ Local verification:
 git status --short
 npm --version
 go version
-supabase --version
+npx supabase --version
 ```
 
 Acceptance: the repository is clean after the commit, the web and API hello-world commands run locally, and no secrets or Huawei data are present.
@@ -214,4 +214,3 @@ The implementation thread should stop at each user verification gate and report:
 4. screenshots or a short browser walkthrough when UI changed;
 5. privacy/security impact;
 6. open decisions and the next exact approval request.
-
