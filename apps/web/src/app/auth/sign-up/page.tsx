@@ -1,0 +1,9 @@
+import Link from "next/link";
+import { signUpWithPassword } from "@/app/auth/actions/auth";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+export default async function SignUpPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const params = await searchParams;
+  return <main className="min-h-screen bg-slate-950 px-5 py-12 text-white"><section className="mx-auto max-w-md rounded-3xl border border-white/10 bg-white/10 p-6"><h1 className="text-3xl font-semibold">Create your private account</h1><p className="mt-2 text-sm leading-6 text-slate-300">Health Tracking stores user-owned wellness rows behind Supabase RLS. This is not a medical or diagnostic service.</p>{params.error ? <p className="mt-4 rounded-2xl bg-red-400/10 p-3 text-sm text-red-100">Enter a valid email and a password of at least 8 characters.</p> : null}<form action={signUpWithPassword} className="mt-6 space-y-4"><label className="block text-sm font-medium">Display name<input name="displayName" className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-white" /></label><label className="block text-sm font-medium">Email<input name="email" type="email" required className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-white" /></label><label className="block text-sm font-medium">Password<input name="password" type="password" required minLength={8} className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-white" /></label><button className={cn(buttonVariants({ size: "lg" }), "w-full rounded-full bg-cyan-300 text-slate-950 hover:bg-cyan-200")}>Create account</button></form><p className="mt-5 text-sm text-slate-300">Already registered? <Link href="/auth/sign-in" className="text-cyan-200 underline">Sign in</Link>.</p></section></main>;
+}

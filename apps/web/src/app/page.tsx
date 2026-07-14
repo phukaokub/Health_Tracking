@@ -48,7 +48,7 @@ export default function Home() {
               <Link href="#how-it-works" className="transition hover:text-white">How it works</Link>
               <Link href="#sample-report" className="transition hover:text-white">Sample report</Link>
               <Link href="#privacy" className="transition hover:text-white">Privacy</Link>
-              <Link href="#signin" className="transition hover:text-white">Sign in</Link>
+              <Link href="/auth/sign-in" className="transition hover:text-white">Sign in</Link>
               <Link
                 href="#start"
                 className={cn(buttonVariants({ size: "lg" }), "h-10 rounded-full bg-white px-5 text-slate-950 hover:bg-slate-100")}
