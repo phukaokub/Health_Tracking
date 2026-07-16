@@ -20,6 +20,7 @@ type User struct {
 	Email string
 }
 type contextKey struct{}
+type accessTokenContextKey struct{}
 
 func WithUser(ctx context.Context, user User) context.Context {
 	return context.WithValue(ctx, contextKey{}, user)
@@ -27,6 +28,17 @@ func WithUser(ctx context.Context, user User) context.Context {
 func UserFromContext(ctx context.Context) (User, bool) {
 	u, ok := ctx.Value(contextKey{}).(User)
 	return u, ok
+}
+
+// WithAccessToken keeps the verified bearer credential separate from User so it
+// cannot be emitted accidentally when user identity is formatted or serialized.
+func WithAccessToken(ctx context.Context, token string) context.Context {
+	return context.WithValue(ctx, accessTokenContextKey{}, token)
+}
+
+func AccessTokenFromContext(ctx context.Context) (string, bool) {
+	token, ok := ctx.Value(accessTokenContextKey{}).(string)
+	return token, ok && token != ""
 }
 
 type JWKS struct {

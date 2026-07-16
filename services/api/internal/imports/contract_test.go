@@ -32,9 +32,46 @@ func TestCreateRequestValidate(t *testing.T) {
 	}
 
 	invalid = valid
-	invalid.TotalFileCount = MaxManifestPageFileCount + 1
+	invalid.TotalFileCount = MaxManifestFileCount + 1
 	if err := invalid.Validate(); err == nil {
-		t.Fatal("oversized manifest page was accepted")
+		t.Fatal("oversized import was accepted")
+	}
+}
+
+func TestManifestRequestsSeparateImportAndPageLimits(t *testing.T) {
+	file := ManifestFile{
+		FileDescriptor: FileDescriptor{
+			ClientFileID:        testFileID,
+			SourceReferenceHash: testHash,
+			SourceFamily:        "synthetic-json",
+			ContentKind:         "application/json",
+			LogicalBytes:        1,
+			ContentSHA256:       testHash,
+		},
+		InclusionState: "planned",
+		Parts: []ManifestPart{{
+			PartIndex: 0, ByteOffset: 0, ByteLength: 1, ContentSHA256: testHash,
+		}},
+	}
+	create := ManifestCreateRequest{
+		CreateRequest: CreateRequest{
+			ManifestVersion: ManifestVersion, SourceKind: SourceKindDirectory,
+			ClientIdempotencyKey: "30000000-0000-4000-8000-000000000001",
+			TotalFileCount:       2, TotalLogicalBytes: 2,
+		},
+		PageContentSHA256: testHash,
+		Files:             []ManifestFile{file},
+	}
+	if err := create.Validate(); err != nil {
+		t.Fatalf("bounded first page of a larger import was rejected: %v", err)
+	}
+	page := ManifestPageRequest{PageIndex: 1, PageContentSHA256: testHash, Files: []ManifestFile{file}}
+	if err := page.Validate(); err != nil {
+		t.Fatalf("valid follow-up page was rejected: %v", err)
+	}
+	page.PageIndex = 0
+	if err := page.Validate(); err == nil {
+		t.Fatal("page zero was accepted as a follow-up page")
 	}
 }
 

@@ -21,6 +21,10 @@ func TestAuthRequireUserAcceptsBearerToken(t *testing.T) {
 		if !ok || user.ID != "user-1" {
 			t.Fatalf("expected user in context, got %#v", user)
 		}
+		accessToken, ok := auth.AccessTokenFromContext(r.Context())
+		if !ok || accessToken != "token" {
+			t.Fatalf("expected verified token in separate context value")
+		}
 		w.WriteHeader(http.StatusNoContent)
 	}))
 
