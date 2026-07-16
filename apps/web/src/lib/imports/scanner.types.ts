@@ -12,7 +12,8 @@ export type ScannedFile = {
   clientFileId: string;
   contentKind: string;
   contentSha256: string | null;
-  inclusionState: "planned" | "excluded";
+  duplicateOfClientFileId: string | null;
+  inclusionState: "planned" | "skipped_duplicate" | "excluded";
   logicalBytes: number;
   sourceFamily: "huawei-json" | "legacy-xls" | "excluded";
   sourceReferenceHash: string | null;

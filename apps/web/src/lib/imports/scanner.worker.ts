@@ -2,6 +2,7 @@
 
 import { createSHA256 } from "hash-wasm";
 
+import { markDuplicateFiles } from "./deduplicate";
 import { classifySourcePath, MAX_DIRECTORY_ENTRIES, normalizeRelativePath } from "./scan-policy";
 import type { DirectoryScanInput, DirectoryScanResult, ScanProgress, ScannedFile, ScanWarning } from "./scanner.types";
 import { isScanCancelledError, scanZipArchive, ScanCancelledError } from "./zip-scan";
@@ -61,6 +62,7 @@ async function scanDirectory(request: ScanRequest): Promise<void> {
           clientFileId: crypto.randomUUID(),
           contentKind: classification.contentKind,
           contentSha256: null,
+          duplicateOfClientFileId: null,
           inclusionState: "excluded",
           logicalBytes: entry.file.size,
           sourceFamily: classification.sourceFamily,
@@ -71,6 +73,7 @@ async function scanDirectory(request: ScanRequest): Promise<void> {
           clientFileId: crypto.randomUUID(),
           contentKind: classification.contentKind,
           contentSha256: await sha256Stream(entry.file.stream(), request.id),
+          duplicateOfClientFileId: null,
           inclusionState: "planned",
           logicalBytes: entry.file.size,
           sourceFamily: classification.sourceFamily,
@@ -79,7 +82,7 @@ async function scanDirectory(request: ScanRequest): Promise<void> {
       }
       worker.postMessage({ id: request.id, type: "progress", progress: { completedFiles: index + 1, totalFiles: request.files.length } } satisfies WorkerResponse);
     }
-    worker.postMessage({ id: request.id, type: "completed", result: { files, warnings } } satisfies WorkerResponse);
+    worker.postMessage({ id: request.id, type: "completed", result: { files: markDuplicateFiles(files), warnings } } satisfies WorkerResponse);
   } catch (error) {
     if (isScanCancelledError(error) || cancelledRequests.delete(request.id)) {
       worker.postMessage({ id: request.id, type: "cancelled" } satisfies WorkerResponse);
@@ -96,7 +99,7 @@ async function scanZip(request: ScanZipRequest): Promise<void> {
       worker.postMessage({ id: request.id, type: "cancelled" } satisfies WorkerResponse);
       return;
     }
-    worker.postMessage({ id: request.id, type: "completed", result } satisfies WorkerResponse);
+    worker.postMessage({ id: request.id, type: "completed", result: { ...result, files: markDuplicateFiles(result.files) } } satisfies WorkerResponse);
   } catch (error) {
     if (isScanCancelledError(error) || cancelledRequests.delete(request.id)) {
       worker.postMessage({ id: request.id, type: "cancelled" } satisfies WorkerResponse);

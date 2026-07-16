@@ -265,7 +265,7 @@ For each TUS/ZIP/hash package, record version, lockfile, license, maintenance/se
 | 3A | OpenAPI/domain contract, state machine, limits, idempotency, decision documentation | Step 2 | Contract/tests/docs only | In progress: metadata-only Go contract and state/limit tests added |
 | 3B | Database migration, constraints/indexes/grants/RLS; repository adapter in 3F | 3A | Schema + tests, feature unused | In progress: local migration, RLS, grants, and pgTAP tests added |
 | 3C | Private bucket configuration and Storage policies/tests | 3A, 3B | Storage boundary, feature unused | In progress: private bucket and owner path policies added; direct upload probes follow in 3E |
-| 3D | Worker scanner/classifier/hash and ZIP/library spikes | 3A, LIB-001/002 | Local manifest UI behind disabled entry | In progress: directory and ZIP Worker review, incremental hashes, path/size/ratio limits, and synthetic tests; duplicate/cancel UX remains pending |
+| 3D | Worker scanner/classifier/hash and ZIP/library spikes | 3A, LIB-001/002 | Local manifest UI behind disabled entry | In progress: directory/ZIP Worker review, incremental hashes, path/size/ratio limits, exact duplicate grouping, and cancel UX; browser interaction/changing-file evidence remains |
 | 3E | TUS uploader/reconcile/pause/resume/retry | 3C, 3D, LIB-003 | Synthetic local upload behind feature gate | Planned |
 | 3F | Go create/page/complete/status/delete endpoints and idempotent job boundary | 3A-3C | API integrated, UI still gated | Planned |
 | 3G | Import wizard UX/accessibility/recovery | 3D-3F | Enable locally after E2E | Planned |
