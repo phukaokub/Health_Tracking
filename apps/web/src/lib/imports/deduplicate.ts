@@ -11,7 +11,7 @@ export function markDuplicateFiles(files: ScannedFile[]): ScannedFile[] {
     const key = `${file.logicalBytes}:${file.contentSha256}`;
     const duplicateOfClientFileId = firstByContent.get(key);
     if (duplicateOfClientFileId) {
-      return { ...file, duplicateOfClientFileId, inclusionState: "skipped_duplicate" };
+      return { ...file, duplicateOfClientFileId, inclusionState: "skipped_duplicate", parts: [] };
     }
     firstByContent.set(key, file.clientFileId);
     return file;

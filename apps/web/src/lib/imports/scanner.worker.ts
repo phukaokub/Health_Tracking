@@ -3,9 +3,11 @@
 import { createSHA256 } from "hash-wasm";
 
 import { markDuplicateFiles } from "./deduplicate";
+import { uuidFromSHA256 } from "./identifiers";
 import { classifySourcePath, MAX_DIRECTORY_ENTRIES, normalizeRelativePath } from "./scan-policy";
 import type { DirectoryScanInput, DirectoryScanResult, ScanProgress, ScannedFile, ScanWarning } from "./scanner.types";
 import { isScanCancelledError, scanZipArchive, ScanCancelledError } from "./zip-scan";
+import { StreamingHashes } from "./stream-hashes";
 
 type ScanRequest = { id: string; type: "scan-directory"; files: DirectoryScanInput[] };
 type ScanZipRequest = { id: string; type: "scan-zip"; file: File };
@@ -65,19 +67,23 @@ async function scanDirectory(request: ScanRequest): Promise<void> {
           duplicateOfClientFileId: null,
           inclusionState: "excluded",
           logicalBytes: entry.file.size,
+          parts: [],
           sourceFamily: classification.sourceFamily,
           sourceReferenceHash: null,
         });
       } else {
+        const hashes = await hashStream(entry.file.stream(), request.id);
+        const sourceReferenceHash = await sha256Text(relativePath);
         files.push({
-          clientFileId: crypto.randomUUID(),
+          clientFileId: uuidFromSHA256(sourceReferenceHash),
           contentKind: classification.contentKind,
-          contentSha256: await sha256Stream(entry.file.stream(), request.id),
+          contentSha256: hashes.contentSha256,
           duplicateOfClientFileId: null,
           inclusionState: "planned",
           logicalBytes: entry.file.size,
+          parts: hashes.parts,
           sourceFamily: classification.sourceFamily,
-          sourceReferenceHash: await sha256Text(relativePath),
+          sourceReferenceHash,
         });
       }
       worker.postMessage({ id: request.id, type: "progress", progress: { completedFiles: index + 1, totalFiles: request.files.length } } satisfies WorkerResponse);
@@ -109,15 +115,15 @@ async function scanZip(request: ScanZipRequest): Promise<void> {
   }
 }
 
-async function sha256Stream(stream: ReadableStream<Uint8Array>, requestID: string): Promise<string> {
-  const hasher = await createSHA256();
+async function hashStream(stream: ReadableStream<Uint8Array>, requestID: string) {
+  const hashes = await StreamingHashes.create();
   const reader = stream.getReader();
   try {
     while (true) {
       const { done, value } = await reader.read();
-      if (done) return hasher.digest("hex");
+      if (done) return hashes.digest();
       if (cancelledRequests.has(requestID)) throw new ScanCancelledError();
-      hasher.update(value);
+      hashes.update(value);
     }
   } finally {
     reader.releaseLock();

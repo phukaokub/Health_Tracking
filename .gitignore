@@ -20,6 +20,7 @@ supabase/.branches/
 
 # Personal data and exports
 HUAWEI_HEALTH_*/
+.codex-fixtures/
 *.jsonl
 *.zip
 *.xls
@@ -30,4 +31,3 @@ HUAWEI_HEALTH_*/
 Thumbs.db
 .idea/
 .vscode/
-
