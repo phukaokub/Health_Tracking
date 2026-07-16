@@ -8,10 +8,10 @@ This is the living status document. Update it at each meaningful handoff, accept
 
 - Release target: private non-clinical V1.
 - Current gate: Step 2 is done: PR [#2](https://github.com/phukaokub/Health_Tracking/pull/2) merged after all CI checks passed at `0b3ad3d`.
-- Current branch: `codex/step-3-import-foundation`.
-- Active milestone: Step 3, import manifest and resumable upload; local work packages 3A-3C are in progress.
+- Current branch: `codex/step-3-import-api`, based on merged `main` at PR #6 (`be7e18c`).
+- Active milestone: Step 3, import manifest and resumable upload. PRs #3-#6 are merged; API persistence, upload, recovery/cleanup, and hosted proof remain.
 - Active Step 3 plan: [`plans/0003-import-manifest-upload.md`](plans/0003-import-manifest-upload.md).
-- The Go foreground access decision is required before persistence endpoints (3F), and preview-isolation is required only before hosted verification (3I). Neither blocks the local contract, RLS, or Storage foundation.
+- The Go foreground access decision is accepted in [`decisions/0002-foreground-supabase-access.md`](decisions/0002-foreground-supabase-access.md). Preview isolation is required before hosted verification (3I).
 - Production status: not provisioned and not approved for user data.
 
 ## Milestones
@@ -21,7 +21,7 @@ This is the living status document. Update it at each meaningful handoff, accept
 | 0 | Repository and developer baseline | Done on `main` | Repository structure and local commands established |
 | 1 | Local Next.js/Go vertical slice | Done on `main` | Web/API baseline merged in PR #1 |
 | 2 | Supabase Auth, profiles, SSR sessions, JWT verification, and RLS | Done | Local email via Mailpit and Google login verified; PR #2 merged after Documentation, Web, and API checks passed |
-| 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | In progress (3A-3D) | Local contract/migration/RLS/Storage evidence plus Worker directory/ZIP review, duplicate detection, and cancellation; next: browser verification and API persistence decision |
+| 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | In progress | PRs #3-#6 merged the foundation/scanner slices; current work adds API persistence, then direct TUS upload, recovery/cleanup, and hosted proof |
 | 4 | Streaming Huawei JSON parsing, normalization, provenance, and dedupe | Planned | Sanitized mapping/fixture review after Step 3 job boundary |
 | 5 | Legacy XLS allowlisted backfill and precedence | Planned | Parser library spike and sanitized fixture acceptance |
 | 6 | First summary, goals, reports, and dashboard | Planned | Normalized data contracts and UX acceptance |
@@ -37,12 +37,12 @@ This baseline is implemented through the active change plan. Work packages may b
 
 | ID | Work package | Dependencies | Completion evidence |
 | --- | --- | --- | --- |
-| 3A | Define import API/OpenAPI contract, manifest version, state machine, error taxonomy, limits, and idempotency keys | Step 2 merge | In progress: Go contract validates bounded, metadata-only manifests and transition rules |
-| 3B | Add `import_runs`, files, parts, jobs, errors, required grants, RLS, indexes, and retention metadata | 3A | In progress: local migration and owner/cross-user pgTAP coverage pass; endpoint persistence follows in 3F |
-| 3C | Add private Storage bucket/path policies and upload authorization design | 3A, 3B | In progress: private 20 MiB bucket and owner path policies migrate/test locally; real TUS path-tamper testing follows in 3E |
-| 3D | Build Web Worker folder/ZIP scanner, classification, SHA-256 manifest, duplicate detection, and cancellation | 3A | In progress: implementation and unit/build evidence complete; authenticated browser interaction and changing-file fixture remain before closure |
+| 3A | Define import API/OpenAPI contract, manifest version, state machine, error taxonomy, limits, and idempotency keys | Step 2 merge | Foundation merged in PR #3; endpoint contracts are being completed in 3F |
+| 3B | Add `import_runs`, files, parts, jobs, errors, required grants, RLS, indexes, and retention metadata | 3A | Foundation merged in PR #3; 38 pgTAP checks now include invoker RPC paging/idempotency and cross-owner denial |
+| 3C | Add private Storage bucket/path policies and upload authorization design | 3A, 3B | Foundation merged in PR #3; a forward fix corrects the folder-depth predicate before real TUS probes in 3E |
+| 3D | Build Web Worker folder/ZIP scanner, classification, SHA-256 manifest, duplicate detection, and cancellation | 3A | Scanner slices merged in PRs #4-#6; authenticated browser interaction and changing-file evidence remain |
 | 3E | Build bounded part upload with checksum, retry/backoff, pause/resume, persisted client state, and max concurrency | 3C, 3D | Synthetic multi-part fixture, network interruption, resume, checksum mismatch, request-size assertion |
-| 3F | Add Go manifest/completion endpoints, user scope, validation, idempotent job creation, and structured redacted logs | 3A, 3B | API/domain tests for valid, unauthorized, tampered, duplicate, and partial manifests |
+| 3F | Add Go manifest/completion endpoints, user scope, validation, idempotent job creation, and structured redacted logs | 3A, 3B | In progress on `codex/step-3-import-api`: create/status/complete/delete, 1 MiB cap, user-JWT/RLS adapter, transactional invoker RPCs, and redacted errors pass local tests |
 | 3G | Build import wizard states: instructions, review, upload, recovery, completion, warning, cancel, and cleanup | 3D, 3E, 3F | Browser walkthrough and E2E with accessible/mobile states |
 | 3H | Add abandoned/failed upload cleanup and import deletion path | 3B, 3C, 3F | Idempotent cleanup tests and object/metadata deletion evidence |
 | 3I | Provision or document staging integration and run browser-to-Storage-to-job smoke | INT-001/002, 3A-3H | Environment audit, synthetic hosted E2E, quota/failure result, no production data |
@@ -71,7 +71,7 @@ This baseline is implemented through the active change plan. Work packages may b
 | DEC-004 | Select production web/API domains and DNS owner | User/product owner | Step 9 | Open |
 | DEC-005 | Select redacted error monitoring, tracing, and uptime approach | User/engineering owner | Step 8 | Open |
 | DEC-006 | Select paid plan capabilities for backups, branching, quotas, and production availability | User/billing owner | Production readiness | Open; do not assume paid features |
-| DEC-007 | Select Go foreground and background Supabase access model without weakening RLS | User/engineering owner | Step 3 API persistence / Step 4 worker | Open; foreground user JWT + publishable key is proposed, worker credential deferred |
+| DEC-007 | Select Go foreground and background Supabase access model without weakening RLS | User/engineering owner | Step 3 API persistence / Step 4 worker | Foreground accepted in ADR 0002: verified user JWT + publishable key; Step 4 worker credential remains deferred |
 
 Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 
@@ -98,6 +98,8 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | 2026-07-16 | Step 3 local 3D slice | Worker directory review, synthetic scanner/ZIP-stream tests, authenticated import-review redirect | Green locally; no upload or ZIP UI enabled |
 | 2026-07-16 | Step 3 local ZIP review | Worker ZIP stream, synthetic traversal rejection, unit tests, and production build | Green locally; no upload or source retention enabled |
 | 2026-07-16 | Step 3 scanner recovery | Exact duplicate grouping, explicit cancel action/state, and nine scanner tests | Green locally; browser Worker interaction pending PR/CI verification |
+| 2026-07-16 | Step 3 merge status correction | PR #3 (`ca6255f`), PR #4 (`89c2712`), PR #5 (`b7283d2`), and PR #6 (`be7e18c`) are present on `main` | Merged; these are completed delivery slices, not the complete Step 3 milestone |
+| 2026-07-16 | Step 3 API/RLS persistence | Forward Storage policy fix, paged security-invoker RPCs, 38 pgTAP checks, Go API test/vet, and redacted two-user API probe | Green locally; direct TUS and browser E2E still pending |
 
 Do not record credential values, email addresses, raw health content, or private incident details in this log.
 

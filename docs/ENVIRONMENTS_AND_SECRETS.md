@@ -58,13 +58,15 @@ The web build is intentionally safe when Supabase variables are absent so generi
 | Name | Class | Purpose | Local default/reference | Preview/staging | Production | Owner/store |
 | --- | --- | --- | --- | --- | --- | --- |
 | `PORT` | Internal | HTTP listen port | `8080` | Platform assigned | Platform assigned | Shell/runtime platform |
+| `WEB_ORIGIN` | Internal | Exact browser origin permitted by API CORS | `http://localhost:3000` | Exact staging/preview web origin | Exact production web origin | Shell; Vercel API project |
 | `SUPABASE_URL` | Internal | Base Supabase URL and JWKS source | `http://127.0.0.1:54321` | Staging/preview URL | Production URL | Shell; Vercel API project |
+| `SUPABASE_PUBLISHABLE_KEY` | Public identifier/internal config | Go foreground Data/Storage API calls with the verified user JWT | Local publishable key | Staging/preview publishable key | Production publishable key | Shell; Vercel API project |
 | `SUPABASE_JWT_ISSUER` | Internal | Exact JWT issuer | `<SUPABASE_URL>/auth/v1` | Hosted staging issuer | Hosted production issuer | Shell; Vercel API project |
 | `SUPABASE_JWT_AUDIENCE` | Internal | Required access-token audience | `authenticated` | `authenticated` unless intentionally changed | `authenticated` unless intentionally changed | Shell; Vercel API project |
 
-The current API validates user JWTs with public JWKS and does not require a Supabase secret key. Adding `sb_secret_*` or legacy `service_role` access is a separate security-sensitive change: document the use case, prove the browser cannot reach it, minimize privileges, add rotation and audit steps, and update this inventory before implementation.
+The API validates user JWTs with public JWKS and uses the public `SUPABASE_PUBLISHABLE_KEY` only while forwarding that verified JWT to owner-scoped Data/Storage APIs. It does not require a Supabase secret key. Adding `sb_secret_*` or legacy `service_role` access is a separate security-sensitive change: document the use case, prove the browser cannot reach it, minimize privileges, add rotation and audit steps, and update this inventory before implementation.
 
-Step 3 must decide how Go persists user-owned import metadata. The proposed foreground path forwards the verified user JWT with a server-configured Supabase publishable key so RLS remains authoritative. Step 4 asynchronous workers need a separate least-privileged database/Storage credential decision because a browser JWT is short-lived. Candidate names such as `SUPABASE_PUBLISHABLE_KEY`, `DATABASE_URL`, or `SUPABASE_SECRET_KEY` are not added to `.env.example` until the chosen adapter consumes them; any hosted database/secret value will be server-only and marked Sensitive.
+ADR 0002 accepts the Step 3 foreground path: forward the verified user JWT with the server-configured publishable key so RLS remains authoritative. Step 4 asynchronous workers need a separate least-privileged database/Storage credential decision because a browser JWT is short-lived. `DATABASE_URL` and `SUPABASE_SECRET_KEY` remain unconfigured and unauthorized.
 
 ### Local Supabase and provider variables
 

@@ -88,7 +88,7 @@ Every failure maps to a stable code, retryability flag, safe user action, and su
 | STEP2 | Merge accepted Auth/RLS pull request | Maintainer | Before branch creation | Merge green PR #2 |
 | DEC-001 | Shared staging Supabase vs per-PR Branching | Release owner | 3I | Shared staging with synthetic data; serialize migrations |
 | DEC-002 | Stable Vercel custom Staging vs branch Preview | Release owner | 3I | Branch-specific Preview fallback |
-| DEC-007 | Go foreground/background Supabase access model | Engineering owner | 3F / Step 4 | Forward user JWT + publishable key for foreground RLS; decide dedicated worker credential before Step 4 |
+| DEC-007 | Go foreground/background Supabase access model | Engineering owner | 3F / Step 4 | Accepted for foreground in ADR 0002: user JWT + publishable key; decide dedicated worker credential before Step 4 |
 | LIB-001 | ZIP streaming library | Engineering owner | 3D | Accepted: `fflate` 0.8.3 (MIT) powers bounded local ZIP review; direct upload remains gated |
 | LIB-002 | Incremental SHA-256 library | Engineering owner | 3D | Accepted: `hash-wasm` 4.12.0 (MIT) in the Worker; avoids whole-file buffering |
 | LIB-003 | TUS client | Engineering owner | 3E | `tus-js-client`, pinned and lockfile-reviewed, following Supabase's documented endpoint/chunk rules |
@@ -216,7 +216,7 @@ No new browser secret is permitted.
 | --- | --- | --- | --- | --- | --- | --- |
 | Existing web Supabase URL/publishable key | Public | Browser/TUS | Local stack | Staging project | Not in Step 3 | Already inventoried |
 | Existing web/API base URLs | Public | Browser | Local | Preview/staging | Not in Step 3 | Already inventoried |
-| `SUPABASE_PUBLISHABLE_KEY` (server name final in 3A) | Public identifier/internal config | Go foreground adapter with user JWT | Local publishable key | Staging publishable key | Deferred | Proposed by DEC-007; add to API example only with consuming code |
+| `SUPABASE_PUBLISHABLE_KEY` | Public identifier/internal config | Go foreground adapter with user JWT | Local publishable key | Staging publishable key | Deferred | Implemented for 3F; never substitutes for the user JWT |
 | Direct Storage hostname/project ref derivation | Public/internal config | Browser uploader | Local endpoint | Hosted direct Storage hostname | Deferred | Prefer safe derivation from validated Supabase URL; avoid duplicate variable if possible |
 | Worker database/Storage credential | Secret | Step 4 async worker | TBD | TBD | Deferred | Explicitly not introduced until worker access decision |
 
@@ -267,7 +267,7 @@ For each TUS/ZIP/hash package, record version, lockfile, license, maintenance/se
 | 3C | Private bucket configuration and Storage policies/tests | 3A, 3B | Storage boundary, feature unused | In progress: private bucket and owner path policies added; direct upload probes follow in 3E |
 | 3D | Worker scanner/classifier/hash and ZIP/library spikes | 3A, LIB-001/002 | Local manifest UI behind disabled entry | In progress: directory/ZIP Worker review, incremental hashes, path/size/ratio limits, exact duplicate grouping, and cancel UX; browser interaction/changing-file evidence remains |
 | 3E | TUS uploader/reconcile/pause/resume/retry | 3C, 3D, LIB-003 | Synthetic local upload behind feature gate | Planned |
-| 3F | Go create/page/complete/status/delete endpoints and idempotent job boundary | 3A-3C | API integrated, UI still gated | Planned |
+| 3F | Go create/page/complete/status/delete endpoints and idempotent job boundary | 3A-3C | API integrated, UI still gated | In progress: bounded create/page/status/complete/delete, invoker RPCs, Storage-first deletion, and local API/RLS tests implemented; direct authenticated integration probe remains |
 | 3G | Import wizard UX/accessibility/recovery | 3D-3F | Enable locally after E2E | Planned |
 | 3H | Cancel/delete/abandoned cleanup and reconciliation | 3B, 3C, 3F | Required before hosted enablement | Planned |
 | 3I | Staging Supabase/Vercel config and hosted synthetic E2E | DEC-001/002, 3A-3H | Milestone completion gate | Planned |
@@ -316,7 +316,7 @@ Stop immediately for any cross-user access, browser-visible secret, source bytes
 - [ ] Step 2 merged.
 - [ ] DEC-001 accepted.
 - [ ] DEC-002 accepted or explicitly deferred until 3I.
-- [ ] DEC-007 foreground access model accepted.
+- [x] DEC-007 foreground access model accepted in ADR 0002.
 - [ ] Manifest page cap and exact path-retention/display rule accepted in 3A.
 - [ ] TUS/ZIP/hash spikes identify dependencies and limits.
 - [ ] Hosted staging account/plan/quota owner identified before 3I.
@@ -330,6 +330,7 @@ Approve this plan's outcome, non-goals, work-package order, proposed foreground 
 | Date | Delta | Impact | Decision |
 | --- | --- | --- | --- |
 | 2026-07-15 | Initial instantiated plan created from the new SDLC template | Makes environment, provider, secret, state, test, cleanup, and rollback work explicit before coding | Proposed |
+| 2026-07-16 | Corrected merged PR status and accepted foreground user-JWT/RLS access | PRs #3-#6 are delivery evidence; remaining Step 3 work is tracked independently | Accepted ADR 0002 |
 
 ## Current primary references
 

@@ -63,7 +63,7 @@ Controls:
 
 - Run the CLI through `npx supabase` and inspect the available command surface with `npx supabase --help`.
 - Commit migrations and policies; use clean local reset, lint, and policy tests before hosted deployment.
-- Use the publishable key in browser code. A secret key or legacy `service_role` key is server-only and is not currently required.
+- Use the publishable key in browser code and in the Go foreground adapter only with the verified user JWT. A secret key or legacy `service_role` key is not currently required.
 - Enable RLS and explicit grants for exposed tables and Storage objects. Test one user cannot access another user's rows or object paths.
 - Do not use `user_metadata` for authorization decisions.
 - Review current Supabase breaking changes before upgrades or production releases.
@@ -147,7 +147,7 @@ Controls:
 | INT-004 | Production web/API domain and DNS provider | Before Step 9 production configuration | Platform domains only; no production launch |
 | INT-005 | Error monitoring, tracing, and uptime provider | During Step 8 | Structured local/platform logs with strict redaction; no health telemetry |
 | INT-006 | Supabase/Vercel plan upgrades for backups, branching, quotas, and availability | Before load/production readiness sign-off | Do not assume paid-only capability; document current limits |
-| INT-007 | Go foreground/background Supabase access model and least-privileged worker credential | Before Step 3 persistence and Step 4 worker execution | Foreground forwards user JWT with publishable key; no elevated worker credential until accepted |
+| INT-007 | Go foreground/background Supabase access model and least-privileged worker credential | Before Step 3 persistence and Step 4 worker execution | Foreground accepted in ADR 0002; no elevated worker credential until a separate Step 4 decision |
 
 Accepted decisions move to an ADR when they are architectural or expensive to reverse, and their implementation status remains in [`DELIVERY_TRACKER.md`](DELIVERY_TRACKER.md).
 

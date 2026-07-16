@@ -13,6 +13,7 @@ import (
 
 	"github.com/phukaokub/Health_Tracking/services/api/internal/auth"
 	"github.com/phukaokub/Health_Tracking/services/api/internal/httpapi"
+	"github.com/phukaokub/Health_Tracking/services/api/internal/supabase"
 )
 
 const version = "0.1.0"
@@ -40,10 +41,21 @@ func main() {
 		log.Fatalf("initialize auth verifier: %v", err)
 	}
 	mux.Handle("/api/v1/me", httpapi.RequireUser(verifier, http.HandlerFunc(currentUserHandler)))
+	importClient, err := newImportClient()
+	if err != nil {
+		log.Fatalf("initialize import persistence: %v", err)
+	}
+	importHandler := httpapi.RequireUser(verifier, httpapi.NewImportHandler(importClient))
+	mux.Handle("/api/v1/imports", importHandler)
+	mux.Handle("/api/v1/imports/", importHandler)
+	webOrigin := os.Getenv("WEB_ORIGIN")
+	if webOrigin == "" {
+		webOrigin = "http://localhost:3000"
+	}
 
 	server := &http.Server{
 		Addr:              ":" + port,
-		Handler:           requestID(mux),
+		Handler:           requestID(cors(webOrigin, mux)),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,
@@ -54,6 +66,14 @@ func main() {
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
+}
+
+func newImportClient() (*supabase.Client, error) {
+	baseURL := strings.TrimRight(os.Getenv("SUPABASE_URL"), "/")
+	if baseURL == "" {
+		baseURL = "http://127.0.0.1:54321"
+	}
+	return supabase.NewClient(baseURL, os.Getenv("SUPABASE_PUBLISHABLE_KEY"), nil)
 }
 
 func newVerifier(ctx context.Context) (*auth.Verifier, error) {
@@ -109,6 +129,27 @@ func requestID(next http.Handler) http.Handler {
 		}
 		w.Header().Set("X-Request-ID", id)
 		next.ServeHTTP(w, r.WithContext(withRequestID(r.Context(), id)))
+	})
+}
+
+func cors(allowedOrigin string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if origin != "" && origin == allowedOrigin {
+			w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Request-ID")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+			w.Header().Set("Vary", "Origin")
+		}
+		if r.Method == http.MethodOptions {
+			if origin != allowedOrigin {
+				writeJSON(w, http.StatusForbidden, map[string]string{"error": "origin_not_allowed"})
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
 	})
 }
 

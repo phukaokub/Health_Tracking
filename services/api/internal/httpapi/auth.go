@@ -24,6 +24,8 @@ func RequireUser(verifier TokenVerifier, next http.Handler) http.Handler {
 			http.Error(w, `{"error":"invalid_token"}`, http.StatusUnauthorized)
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(auth.WithUser(r.Context(), user)))
+		ctx := auth.WithUser(r.Context(), user)
+		ctx = auth.WithAccessToken(ctx, strings.TrimSpace(token))
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
