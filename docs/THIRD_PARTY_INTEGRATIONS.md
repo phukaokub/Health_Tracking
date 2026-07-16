@@ -13,7 +13,7 @@ This register covers every external service that can affect development, authent
 
 ## Integration register
 
-| Integration | Purpose and data | Environments | Status on 2026-07-15 | Credential/configuration owner | Verification and failure behavior |
+| Integration | Purpose and data | Environments | Status on 2026-07-17 | Credential/configuration owner | Verification and failure behavior |
 | --- | --- | --- | --- | --- | --- |
 | GitHub repository and Actions | Source, pull requests, CI metadata; no health data | Development/CI | Active | Repository maintainer; GitHub settings | PR checks run; if unavailable, do not merge/release and retain local evidence |
 | Local Supabase CLI/Docker | Auth, Postgres, Studio, Storage, Mailpit using synthetic data | Local | Active | Repository config plus developer machine | `npx supabase start`, clean reset, Auth/RLS tests; local outage blocks integration tests only |
@@ -22,6 +22,7 @@ This register covers every external service that can affect development, authent
 | Google OAuth local client | Identity using `openid`, email, and profile information | Local | Validated local | Google Cloud project owner; local secret in shell | Login and callback complete; email/password remains available if provider fails |
 | Google OAuth hosted clients | Identity only; no Google API access or provider-token retention | Staging/production | Planned | Google Cloud project owner; secret in corresponding Supabase project | Separate client per environment preferred; exact callback and consent-screen test |
 | Mailpit | Captures local Auth email; no external delivery | Local | Active | Local Supabase stack | Confirmation/reset message appears at port 54324; never expect a real inbox message |
+| Playwright/Chromium | Real-browser Auth/import acceptance using generated ZIP bytes and generated users only | Local/CI | Validated local; CI gate added pending PR proof; pinned `@playwright/test` 1.61.1 | Repository lockfile and developer/CI browser cache | `npm run test:e2e:browser`; failure retains runner-local trace/screenshot artifacts that must not contain real user data |
 | Transactional Auth SMTP | Confirmation, reset, and security email | Staging/production | Decision required before public email Auth | Email-provider and Supabase owners | Delivery, SPF/DKIM/DMARC, template links, bounce/rate-limit checks; Google login can remain fallback |
 | Vercel web project | Builds and serves Next.js | Preview/staging/production | Planned; local build is active | Vercel team/project owner | Build, page/Auth smoke, env audit, deployment diagnostics; rollback to known-good deployment |
 | Vercel API project | Builds and serves Go API | Preview/staging/production | Planned | Vercel team/project owner | Health/JWKS/authenticated route smoke; web must show a safe unavailable state on outage |
@@ -160,5 +161,6 @@ Review these primary sources before the relevant implementation/release; provide
 - Supabase Auth: [Google login](https://supabase.com/docs/guides/auth/social-login/auth-google), [redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls), and [custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp).
 - Supabase Storage: [resumable uploads](https://supabase.com/docs/guides/storage/uploads/resumable-uploads), [access control](https://supabase.com/docs/guides/storage/security/access-control), [ownership](https://supabase.com/docs/guides/storage/security/ownership), and [Storage schema safety](https://supabase.com/docs/guides/storage/schema/design).
 - Vercel: [environment variables](https://vercel.com/docs/environment-variables), [managing variables across environments](https://vercel.com/docs/environment-variables/manage-across-environments), [deployment promotion/rollback](https://vercel.com/docs/deployments/promoting-a-deployment), and [Function limits](https://vercel.com/docs/functions/limitations).
+- Playwright: [test web servers](https://playwright.dev/docs/test-webserver) and [locator file upload](https://playwright.dev/docs/input#upload-files).
 - GitHub: [protected branches](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches) and [deployment environments/protection](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments).
 - Google: [OAuth web-server credentials and redirect validation](https://developers.google.com/identity/protocols/oauth2/web-server) and [OAuth policies](https://developers.google.com/identity/protocols/oauth2/policies).

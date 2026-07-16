@@ -49,6 +49,7 @@ The prefix `NEXT_PUBLIC_` means the value is browser-visible. A variable with th
 | `NEXT_PUBLIC_SUPABASE_URL` | Public | Supabase project URL | Local API URL | Staging/preview project URL | Production project URL | Local `.env.local`; Vercel web project |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public | Supabase browser API key used with user JWT/RLS | Local publishable key | Staging/preview publishable key | Production publishable key | Local `.env.local`; Vercel web project |
 | `NEXT_PUBLIC_IMPORT_UPLOAD_ENABLED` | Public | Fail-closed Step 3 direct-upload release gate | `true` only during explicit local verification | `true` only during approved synthetic staging verification | `false` until production release approval | Local `.env.local`; Vercel web project |
+| `NEXT_DIST_DIR` | Internal | Isolates generated Next.js output for concurrent local browser tests | `.next-e2e` only in the test-launched process | Not set | Not set | Browser test runner |
 
 The web build is intentionally safe when Supabase variables are absent so generic CI can prerender the application. Auth runtime verification is still required in every auth-enabled deployed environment.
 
@@ -77,6 +78,16 @@ ADR 0002 accepts the Step 3 foreground path: forward the verified user JWT with 
 | --- | --- | --- | --- | --- |
 | `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` | Public identifier | Local Supabase Auth | Developer shell before `npx supabase start` | Must match the Google web client used for local Auth |
 | `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET` | Secret | Local Supabase Auth | Developer shell only | Referenced by `supabase/config.toml`; never put in web env files |
+
+### Local browser-acceptance variables
+
+| Name | Class | Consumer/location | Rule |
+| --- | --- | --- | --- |
+| `E2E_SUPABASE_URL` | Internal | Playwright config and owner-scoped test client; child process only | Derived by `e2e/run-browser-tests.mjs` from local CLI status; never committed |
+| `E2E_SUPABASE_PUBLISHABLE_KEY` | Public | Isolated test web/API and owner-scoped assertions; child process only | Derived from local CLI status and paired with a user JWT for application data |
+| `E2E_SUPABASE_ADMIN_KEY` | Secret | Playwright test setup/teardown only | Derived from the local stack, used only to create/delete generated Auth users, never passed to Next.js or Go, never printed or accepted for hosted targets |
+
+The wrapper uses the repository's pinned Supabase CLI version, refuses to run when the local stack does not provide these values, and does not read hosted credentials. It strips every `E2E_*` variable from the temporary Next.js/Go environments and leaves zero generated Auth users or Storage objects after a passing run.
 
 Hosted Google credentials are configured in each hosted Supabase project's Auth provider settings. They are not Vercel web variables.
 
@@ -174,6 +185,16 @@ Web shell:
 cd apps/web
 npm run dev
 ```
+
+Real-browser import acceptance uses isolated ports/build output and generated data, so it can run beside the normal dev servers:
+
+```powershell
+cd apps/web
+npx playwright install chromium
+npm run test:e2e:browser
+```
+
+The command requires local Supabase to be running. It starts temporary web/API processes, enables direct upload only in that web child process, and fails if ports `3102` or `8181` are already occupied.
 
 Local email is captured by Mailpit at `http://127.0.0.1:54324`; it is intentionally not delivered to a real inbox.
 
