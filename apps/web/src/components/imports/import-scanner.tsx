@@ -7,6 +7,7 @@ import type { DirectoryScanInput, DirectoryScanResult } from "@/lib/imports/scan
 
 export function ImportScanner() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const zipInputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<DirectoryScanner | null>(null);
   const [progress, setProgress] = useState<{ completedFiles: number; totalFiles: number } | null>(null);
   const [result, setResult] = useState<DirectoryScanResult | null>(null);
@@ -21,6 +22,10 @@ export function ImportScanner() {
     inputRef.current?.setAttribute("webkitdirectory", "");
     inputRef.current?.setAttribute("directory", "");
     inputRef.current?.click();
+  }
+
+  function chooseZip() {
+    zipInputRef.current?.click();
   }
 
   async function scanSelection(event: React.ChangeEvent<HTMLInputElement>) {
@@ -43,6 +48,23 @@ export function ImportScanner() {
     }
   }
 
+  async function scanZipSelection(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !scannerRef.current) return;
+
+    setError(null);
+    setResult(null);
+    setProgress({ completedFiles: 0, totalFiles: 0 });
+    try {
+      setResult(await scannerRef.current.scanZip(file));
+    } catch (scanError) {
+      setError(scanError instanceof Error ? scanError.message : "scan_failed");
+    } finally {
+      setProgress(null);
+    }
+  }
+
   const planned = result?.files.filter((file) => file.inclusionState === "planned").length ?? 0;
   const excluded = result?.files.filter((file) => file.inclusionState === "excluded").length ?? 0;
 
@@ -50,11 +72,15 @@ export function ImportScanner() {
     <section className="rounded-3xl border border-white/10 bg-white/10 p-6">
       <h1 className="text-3xl font-semibold">Review a local health export</h1>
       <p className="mt-3 text-slate-300">
-        Select a folder to classify supported files and calculate local checksums. Nothing is uploaded in this review step.
+        Select a folder or ZIP to classify supported files and calculate local checksums. Nothing is uploaded in this review step.
       </p>
       <input ref={inputRef} className="sr-only" type="file" multiple onChange={scanSelection} />
+      <input ref={zipInputRef} className="sr-only" type="file" accept=".zip,application/zip" onChange={scanZipSelection} />
       <button className="mt-6 rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-950" type="button" onClick={chooseDirectory}>
         Choose export folder
+      </button>
+      <button className="ml-3 mt-6 rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white" type="button" onClick={chooseZip}>
+        Choose ZIP export
       </button>
       {progress ? <p className="mt-4 text-sm text-slate-300">Reviewing {progress.completedFiles} of {progress.totalFiles} files…</p> : null}
       {error ? <p className="mt-4 text-sm text-red-200">Unable to review this selection ({error}).</p> : null}

@@ -19,7 +19,7 @@ export type ScannedFile = {
 };
 
 export type ScanWarning = {
-  code: "entry_limit_exceeded" | "unsafe_relative_path";
+  code: "entry_limit_exceeded" | "unsafe_relative_path" | "unsafe_zip_entry" | "zip_entry_size_missing" | "zip_entry_overlap";
 };
 
 export type DirectoryScanResult = {
