@@ -3,6 +3,7 @@ import { isSupported, Upload } from "tus-js-client";
 import { getBrowserClient } from "@/lib/supabase/client";
 
 import type { ImportSnapshot } from "./import-api";
+import { streamVerifiedZIPParts } from "./zip-part-source";
 
 export const TUS_TRANSPORT_CHUNK_BYTES = 6 * 1024 * 1024;
 
@@ -58,6 +59,33 @@ export class DirectImportUploader {
       completedParts += 1;
       onProgress({ bytesUploaded: completedBytes, bytesTotal, completedParts, totalParts: parts.length });
     }
+  }
+
+  async uploadZIP(snapshot: ImportSnapshot, archive: Blob, onProgress: (progress: UploadProgress) => void): Promise<void> {
+    if (!isSupported) throw new Error("tus_not_supported");
+    this.cancelled = false;
+    this.paused = false;
+    const files = snapshot.files.filter((file) => file.inclusion_state === "planned");
+    const totalParts = files.reduce((total, file) => total + file.parts.length, 0);
+    const bytesTotal = files.reduce((total, file) => total + file.parts.reduce((fileTotal, part) => fileTotal + part.byte_length, 0), 0);
+    let completedBytes = 0;
+    let completedParts = 0;
+    onProgress({ bytesUploaded: 0, bytesTotal, completedParts: 0, totalParts });
+
+    await streamVerifiedZIPParts(archive, snapshot.files, async (_file, part, blob) => {
+      this.throwIfCancelled();
+      await this.waitUntilResumed();
+      if (blob.size !== part.byte_length || await sha256Blob(blob) !== part.content_sha256) {
+        throw new Error("source_archive_changed");
+      }
+      await this.uploadPart(blob, part.object_path, part.content_sha256, (partBytes) => {
+        onProgress({ bytesUploaded: completedBytes + partBytes, bytesTotal, completedParts, totalParts });
+      });
+      completedBytes += part.byte_length;
+      completedParts += 1;
+      onProgress({ bytesUploaded: completedBytes, bytesTotal, completedParts, totalParts });
+    });
+    if (completedParts !== totalParts || completedBytes !== bytesTotal) throw new Error("source_archive_changed");
   }
 
   async pause(): Promise<void> {

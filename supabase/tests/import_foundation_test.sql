@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(38);
+SELECT plan(46);
 
 SELECT ok(to_regclass('public.import_runs') is not null, 'import_runs exists');
 SELECT ok(to_regclass('public.import_manifest_pages') is not null, 'import_manifest_pages exists');
@@ -27,8 +27,8 @@ SELECT is(
      AND table_schema = 'public'
      AND table_name IN ('import_runs', 'import_manifest_pages', 'import_files', 'import_file_parts', 'import_jobs', 'import_errors')
      AND privilege_type IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE')),
-  24::bigint,
-  'authenticated has explicit CRUD grants for all import metadata tables'
+  6::bigint,
+  'authenticated can read owner rows but cannot bypass RPC write transitions'
 );
 
 SELECT is(
@@ -113,6 +113,29 @@ SELECT ok(
   has_function_privilege('authenticated', 'public.append_import_manifest_page(uuid, jsonb)', 'EXECUTE'),
   'authenticated can execute the invoker manifest page function'
 );
+SELECT ok(
+  has_function_privilege('authenticated', 'public.list_expired_imports(integer)', 'EXECUTE'),
+  'authenticated can list only its own expired imports for cleanup'
+);
+SELECT ok(
+  not has_function_privilege('anon', 'public.list_expired_imports(integer)', 'EXECUTE'),
+  'anonymous callers cannot list expired imports'
+);
+SELECT is(
+  (SELECT count(*)
+   FROM pg_proc
+   WHERE oid IN (
+     'public.import_api_snapshot(uuid)'::regprocedure,
+     'public.create_import_manifest(jsonb)'::regprocedure,
+     'public.append_import_manifest_page(uuid,jsonb)'::regprocedure,
+     'public.complete_import(uuid)'::regprocedure,
+     'public.begin_import_delete(uuid)'::regprocedure,
+     'public.finish_import_delete(uuid)'::regprocedure,
+     'public.list_expired_imports(integer)'::regprocedure
+   ) AND prosecdef),
+  7::bigint,
+  'all import RPCs use explicit caller checks behind definer write privileges'
+);
 
 INSERT INTO auth.users (
   id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -129,8 +152,6 @@ INSERT INTO auth.users (
     '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
   );
 
-SET LOCAL ROLE authenticated;
-SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000031', true);
 INSERT INTO public.import_runs (id, user_id, client_idempotency_key, source_kind)
 VALUES (
   '10000000-0000-4000-8000-000000000031',
@@ -139,10 +160,19 @@ VALUES (
   'directory'
 );
 
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000031', true);
+
 SELECT is(
   (SELECT count(*) FROM public.import_runs WHERE id = '10000000-0000-4000-8000-000000000031'),
   1::bigint,
   'owner can create and read an import run'
+);
+SELECT throws_ok(
+  $sql$delete from public.import_runs where id = '10000000-0000-4000-8000-000000000031'$sql$,
+  '42501',
+  'permission denied for table import_runs',
+  'owner cannot bypass Storage-first cleanup with a direct metadata delete'
 );
 
 SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-000000000032';
@@ -151,7 +181,12 @@ SELECT is(
   0::bigint,
   'another authenticated user cannot read the owner import run'
 );
-DELETE FROM public.import_runs WHERE id = '10000000-0000-4000-8000-000000000031';
+SELECT throws_ok(
+  $sql$delete from public.import_runs where id = '10000000-0000-4000-8000-000000000031'$sql$,
+  '42501',
+  'permission denied for table import_runs',
+  'another user has no direct metadata write privilege'
+);
 RESET ROLE;
 
 SELECT ok(
@@ -373,6 +408,31 @@ SELECT throws_ok(
   '22023',
   'manifest pages must be appended in order',
   'out-of-order manifest page is rejected'
+);
+
+RESET ROLE;
+INSERT INTO public.import_runs (id, user_id, client_idempotency_key, source_kind, state, cleanup_after)
+VALUES
+  ('10000000-0000-4000-8000-000000000051', '00000000-0000-4000-8000-000000000031', '20000000-0000-4000-8000-000000000051', 'zip', 'uploading', now() - interval '1 minute'),
+  ('10000000-0000-4000-8000-000000000052', '00000000-0000-4000-8000-000000000031', '20000000-0000-4000-8000-000000000052', 'zip', 'uploading', now() + interval '1 hour'),
+  ('10000000-0000-4000-8000-000000000053', '00000000-0000-4000-8000-000000000031', '20000000-0000-4000-8000-000000000053', 'zip', 'completed', now() - interval '1 minute');
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-000000000031';
+SELECT is(
+  (SELECT count(*) FROM public.list_expired_imports(25)),
+  1::bigint,
+  'cleanup list includes only expired imports in a cleanable state'
+);
+SELECT is(
+  (SELECT import_id FROM public.list_expired_imports(25)),
+  '10000000-0000-4000-8000-000000000051'::uuid,
+  'cleanup list returns the expected owner import'
+);
+SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-000000000032';
+SELECT is(
+  (SELECT count(*) FROM public.list_expired_imports(25)),
+  0::bigint,
+  'another user cannot discover the owner expired import'
 );
 RESET ROLE;
 

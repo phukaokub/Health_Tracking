@@ -5,10 +5,10 @@
 - Change ID: STEP-003
 - Milestone/work packages: Step 3 / 3A-3I
 - Owner: repository maintainer with Codex implementation support
-- Status: in progress; 3A-3F merged, local 3E/3G upload slice under verification
+- Status: in progress; 3A-3F and directory 3E/3G merged, ZIP 3E/3G and cleanup 3H under local verification
 - Baseline commit: `0b3ad3df618505eab31b40663e794f915d679227` (Step 2 merge)
-- Branch: `codex/step-3-tus-upload`
-- Related records: [`../IMPLEMENTATION_STEPS.md`](../IMPLEMENTATION_STEPS.md), [`../DELIVERY_TRACKER.md`](../DELIVERY_TRACKER.md), ADR 0001, ADR 0002, ADR 0003, DEC-001, DEC-002, DEC-007
+- Branch: `codex/step-3-zip-cleanup`
+- Related records: [`../IMPLEMENTATION_STEPS.md`](../IMPLEMENTATION_STEPS.md), [`../DELIVERY_TRACKER.md`](../DELIVERY_TRACKER.md), ADR 0001, ADR 0002, ADR 0003, ADR 0004, DEC-001, DEC-002, DEC-007
 - Target environments: local, CI, PR preview, staging
 - Explicitly excluded environment: production
 - Last updated: 2026-07-16
@@ -113,6 +113,7 @@ Final names/examples belong in OpenAPI and migration files. The plan fixes the s
 - `POST /api/v1/imports/{import_id}/complete`: reconcile expected objects and queue exactly one job.
 - `GET /api/v1/imports/{import_id}`: return owner-scoped state/progress/warnings.
 - `DELETE /api/v1/imports/{import_id}`: idempotently cancel and begin metadata/object cleanup.
+- `POST /api/v1/imports/cleanup`: list only the caller's eligible imports whose 24-hour deadline passed, then converge each through the same Storage-first deletion path.
 
 All endpoints require the Step 2 bearer boundary. IDs are unguessable UUIDs, but authorization always uses the verified user ID as well.
 
@@ -197,7 +198,7 @@ Every exposed table receives explicit grants plus RLS. Include owner ID on hot-p
 ### Retention
 
 - Successful raw logical-part objects are deleted after parser completion and accepted verification; normalized data remains according to user controls.
-- Failed/abandoned uploads are eligible for cleanup after 24 hours unless active retry/lease evidence says otherwise.
+- Failed/abandoned uploads are eligible for cleanup after 24 hours unless active retry/lease evidence says otherwise. The authenticated import page reconciles caller-owned completed objects through the API when the user returns; Supabase TUS upload URLs expire after at most 24 hours. System-wide scheduled cleanup remains coupled to the Step 4 least-privileged worker credential decision.
 - Cancel/delete hides the import from active UI immediately, stops future work, and reconciles object/metadata deletion asynchronously and idempotently.
 - Error/support metadata has an accepted retention period before production; raw paths/content are not retained as diagnostics.
 
@@ -266,10 +267,10 @@ For each TUS/ZIP/hash package, record version, lockfile, license, maintenance/se
 | 3B | Database migration, constraints/indexes/grants/RLS; repository adapter in 3F | 3A | Schema + tests, feature unused | Complete in PRs #3 and #7; 38 pgTAP checks cover invoker RPCs and cross-owner denial |
 | 3C | Private bucket configuration and Storage policies/tests | 3A, 3B | Storage boundary, feature unused | Complete in PRs #3 and #7; corrected owner-path policy passed a real local TUS probe |
 | 3D | Worker scanner/classifier/hash and ZIP/library spikes | 3A, LIB-001/002 | Local manifest UI behind disabled entry | Complete for review in PRs #4-#6; ZIP entry upload and browser interaction evidence remain in 3E/3G |
-| 3E | TUS uploader/reconcile/pause/resume/retry | 3C, 3D, LIB-003 | Synthetic local upload behind feature gate | In progress: pinned TUS client, deterministic resume fingerprint, 6 MiB chunks, 20 MiB checksummed objects, pause/resume/cancel, and real generated-byte local probe pass; ZIP source adapter remains |
+| 3E | TUS uploader/reconcile/pause/resume/retry | 3C, 3D, LIB-003 | Synthetic local upload behind feature gate | In progress: directory path merged in PR #8; ZIP adapter now revalidates archive metadata and streams one checksummed logical part at a time into the same 6 MiB TUS transport. Browser interruption evidence remains |
 | 3F | Go create/page/complete/status/delete endpoints and idempotent job boundary | 3A-3C | API integrated, UI still gated | Complete in PR #7 with 1 MiB API cap, paged manifests, user-JWT/RLS adapter, idempotent job creation, and Storage-first delete |
-| 3G | Import wizard UX/accessibility/recovery | 3D-3F | Enable locally after E2E | In progress: directory review/upload/progress/pause/resume/retry/cancel states implemented behind `NEXT_PUBLIC_IMPORT_UPLOAD_ENABLED`; browser walkthrough remains |
-| 3H | Cancel/delete/abandoned cleanup and reconciliation | 3B, 3C, 3F | Required before hosted enablement | Planned |
+| 3G | Import wizard UX/accessibility/recovery | 3D-3F | Enable locally after E2E | In progress: directory flow merged in PR #8 and ZIP uses the same gated states locally; browser accessibility/mobile/interruption walkthrough remains |
+| 3H | Cancel/delete/abandoned cleanup and reconciliation | 3B, 3C, 3F | Required before hosted enablement | In progress: owner-scoped expired-run listing and Storage-first API deletion pass locally; direct table writes are revoked per ADR 0004. System-wide scheduling remains tied to the Step 4 worker credential decision |
 | 3I | Staging Supabase/Vercel config and hosted synthetic E2E | DEC-001/002, 3A-3H | Milestone completion gate | Planned |
 
 Each pull request updates this plan/tracker and contains a safe enable/disable boundary. No remote user can start imports before 3H is complete.

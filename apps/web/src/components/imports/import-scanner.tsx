@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { createImport, completeImport, deleteImport, ImportAPIError, type ImportSnapshot } from "@/lib/imports/import-api";
+import { cleanupExpiredImports, createImport, completeImport, deleteImport, ImportAPIError, type ImportSnapshot } from "@/lib/imports/import-api";
 import { DirectoryScanner } from "@/lib/imports/directory-scanner";
 import { sha256Text, uuidFromSHA256 } from "@/lib/imports/identifiers";
 import { normalizeRelativePath } from "@/lib/imports/scan-policy";
@@ -18,6 +18,7 @@ export function ImportScanner() {
   const scannerRef = useRef<DirectoryScanner | null>(null);
   const uploaderRef = useRef<DirectImportUploader | null>(null);
   const directoryFilesRef = useRef(new Map<string, File>());
+  const zipFileRef = useRef<File | null>(null);
   const cancellingUploadRef = useRef(false);
   const [progress, setProgress] = useState<{ completedFiles: number; totalFiles: number } | null>(null);
   const [result, setResult] = useState<DirectoryScanResult | null>(null);
@@ -28,10 +29,22 @@ export function ImportScanner() {
   const [uploadStage, setUploadStage] = useState<UploadStage>("idle");
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [snapshot, setSnapshot] = useState<ImportSnapshot | null>(null);
+  const [cleanupNotice, setCleanupNotice] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     scannerRef.current = new DirectoryScanner();
+    void cleanupExpiredImports().then((cleanup) => {
+      if (active && cleanup.deleted_count > 0) {
+        setCleanupNotice(`${cleanup.deleted_count} expired import ${cleanup.deleted_count === 1 ? "was" : "were"} removed.`);
+      }
+    }).catch((cleanupError: unknown) => {
+      if (active && cleanupError instanceof ImportAPIError && ![401, 503].includes(cleanupError.status)) {
+        setCleanupNotice("An expired import still needs cleanup; this will retry the next time you return.");
+      }
+    });
     return () => {
+      active = false;
       scannerRef.current?.dispose();
       void uploaderRef.current?.pause();
     };
@@ -56,6 +69,7 @@ export function ImportScanner() {
     if (!entries.length || !scannerRef.current) return;
 
     resetReview("directory");
+    zipFileRef.current = null;
     setProgress({ completedFiles: 0, totalFiles: entries.length });
     const sourceFiles = new Map<string, File>();
     for (const entry of entries) {
@@ -82,6 +96,7 @@ export function ImportScanner() {
 
     resetReview("zip");
     directoryFilesRef.current.clear();
+    zipFileRef.current = file;
     setProgress({ completedFiles: 0, totalFiles: 0 });
     try {
       setResult(await scannerRef.current.scanZip(file));
@@ -112,7 +127,7 @@ export function ImportScanner() {
   }
 
   async function startUpload() {
-    if (!uploadEnabled || !result || sourceKind !== "directory") return;
+    if (!uploadEnabled || !result || !sourceKind) return;
     cancellingUploadRef.current = false;
     setError(null);
     setUploadStage("creating");
@@ -123,7 +138,12 @@ export function ImportScanner() {
       const uploader = new DirectImportUploader();
       uploaderRef.current = uploader;
       setUploadStage("uploading");
-      await uploader.upload(created, directoryFilesRef.current, setUploadProgress);
+      if (sourceKind === "directory") {
+        await uploader.upload(created, directoryFilesRef.current, setUploadProgress);
+      } else {
+        if (!zipFileRef.current) throw new Error("source_archive_changed");
+        await uploader.uploadZIP(created, zipFileRef.current, setUploadProgress);
+      }
       setUploadStage("finalizing");
       const completed = await completeImport(created.id);
       setSnapshot(completed);
@@ -174,8 +194,9 @@ export function ImportScanner() {
     <section className="rounded-3xl border border-white/10 bg-white/10 p-6">
       <h1 className="text-3xl font-semibold">Review and import a health export</h1>
       <p className="mt-3 text-slate-300">
-        Review runs locally. When you approve a folder import, supported bytes go directly to private Supabase Storage and never pass through Next.js or the Go API.
+        Review runs locally. When you approve a folder or ZIP import, supported bytes go directly to private Supabase Storage and never pass through Next.js or the Go API.
       </p>
+      {cleanupNotice ? <p className="mt-3 text-sm text-amber-100" aria-live="polite">{cleanupNotice}</p> : null}
       <input ref={inputRef} className="sr-only" type="file" multiple onChange={scanSelection} />
       <input ref={zipInputRef} className="sr-only" type="file" accept=".zip,application/zip" onChange={scanZipSelection} />
       <button disabled={isBusy} className="mt-6 rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50" type="button" onClick={chooseDirectory}>
@@ -199,11 +220,10 @@ export function ImportScanner() {
           <p><span className="font-medium text-white">{planned}</span> supported files; <span className="font-medium text-white">{duplicates}</span> exact duplicates skipped; <span className="font-medium text-white">{excluded}</span> excluded.</p>
           {result.warnings.length ? <p className="mt-2 text-amber-200">Some entries were ignored because their path or size policy was unsafe.</p> : null}
           <p className="mt-3 text-slate-400">Names, paths, file contents, and health values are not displayed or sent as metadata.</p>
-          {sourceKind === "directory" && planned > 0 && uploadStage === "idle" && uploadEnabled ? (
+          {sourceKind && planned > 0 && uploadStage === "idle" && uploadEnabled ? (
             <button className="mt-4 rounded-full bg-emerald-300 px-5 py-2 font-semibold text-slate-950" type="button" onClick={startUpload}>Upload supported files</button>
           ) : null}
-          {sourceKind === "directory" && planned > 0 && !uploadEnabled ? <p className="mt-4 text-cyan-100">Direct upload is disabled until the current Step 3 verification window is explicitly enabled.</p> : null}
-          {sourceKind === "zip" ? <p className="mt-4 text-cyan-100">ZIP review is available; direct ZIP entry upload remains disabled until bounded extraction is connected.</p> : null}
+          {sourceKind && planned > 0 && !uploadEnabled ? <p className="mt-4 text-cyan-100">Direct upload is disabled until the current Step 3 verification window is explicitly enabled.</p> : null}
         </div>
       ) : null}
 
@@ -235,6 +255,7 @@ function friendlyError(code: string): string {
     import_rejected: "the metadata plan was rejected",
     no_supported_files: "no supported files were selected",
     source_file_changed: "a selected file changed after review; select the folder again",
+    source_archive_changed: "the selected ZIP changed or no longer matches its reviewed manifest; select it again",
     supabase_not_configured: "Supabase is not configured",
     tus_not_supported: "this browser does not support resumable uploads",
     upload_failed: "the upload was interrupted; retry to resume",

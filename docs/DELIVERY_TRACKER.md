@@ -8,8 +8,8 @@ This is the living status document. Update it at each meaningful handoff, accept
 
 - Release target: private non-clinical V1.
 - Current gate: Step 2 is done: PR [#2](https://github.com/phukaokub/Health_Tracking/pull/2) merged after all CI checks passed at `0b3ad3d`.
-- Current branch: `codex/step-3-tus-upload`, based on merged `main` at PR #7 (`674f364`).
-- Active milestone: Step 3, import manifest and resumable upload. PRs #3-#7 are merged; direct upload/recovery is under local verification, while ZIP upload, cleanup, browser evidence, and hosted proof remain.
+- Current branch: `codex/step-3-zip-cleanup`, based on merged `main` at PR #8 (`268e087`).
+- Active milestone: Step 3, import manifest and resumable upload. PRs #3-#8 are merged; bounded ZIP entry upload and owner-scoped expired-run cleanup are under local verification, while browser interruption/accessibility evidence and hosted proof remain.
 - Active Step 3 plan: [`plans/0003-import-manifest-upload.md`](plans/0003-import-manifest-upload.md).
 - The Go foreground access decision is accepted in [`decisions/0002-foreground-supabase-access.md`](decisions/0002-foreground-supabase-access.md). Preview isolation is required before hosted verification (3I).
 - Production status: not provisioned and not approved for user data.
@@ -21,7 +21,7 @@ This is the living status document. Update it at each meaningful handoff, accept
 | 0 | Repository and developer baseline | Done on `main` | Repository structure and local commands established |
 | 1 | Local Next.js/Go vertical slice | Done on `main` | Web/API baseline merged in PR #1 |
 | 2 | Supabase Auth, profiles, SSR sessions, JWT verification, and RLS | Done | Local email via Mailpit and Google login verified; PR #2 merged after Documentation, Web, and API checks passed |
-| 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | In progress | PRs #3-#7 merged foundation, scanner, and persistence slices; current work adds gated direct TUS upload, then ZIP upload, cleanup, browser evidence, and hosted proof |
+| 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | In progress | PRs #3-#8 merged foundation through gated directory TUS upload; current work adds bounded ZIP entry upload, least-privilege cleanup, browser evidence, and hosted proof |
 | 4 | Streaming Huawei JSON parsing, normalization, provenance, and dedupe | Planned | Sanitized mapping/fixture review after Step 3 job boundary |
 | 5 | Legacy XLS allowlisted backfill and precedence | Planned | Parser library spike and sanitized fixture acceptance |
 | 6 | First summary, goals, reports, and dashboard | Planned | Normalized data contracts and UX acceptance |
@@ -41,10 +41,10 @@ This baseline is implemented through the active change plan. Work packages may b
 | 3B | Add `import_runs`, files, parts, jobs, errors, required grants, RLS, indexes, and retention metadata | 3A | Complete in PRs #3/#7; 38 pgTAP checks include invoker RPC paging/idempotency and cross-owner denial |
 | 3C | Add private Storage bucket/path policies and upload authorization design | 3A, 3B | Complete in PRs #3/#7; corrected owner path passed real local TUS create/upload/verify/delete |
 | 3D | Build Web Worker folder/ZIP scanner, classification, SHA-256 manifest, duplicate detection, and cancellation | 3A | Scanner slices merged in PRs #4-#6; authenticated browser interaction and changing-file evidence remain |
-| 3E | Build bounded part upload with checksum, retry/backoff, pause/resume, persisted client state, and max concurrency | 3C, 3D | In progress on `codex/step-3-tus-upload`: 6 MiB TUS chunks, deterministic resume, source re-hash, sequential bounded parts, and real generated-byte local probe pass; ZIP source adapter and interruption evidence remain |
+| 3E | Build bounded part upload with checksum, retry/backoff, pause/resume, persisted client state, and max concurrency | 3C, 3D | Directory path merged in PR #8; current ZIP adapter revalidates archive policy and checksums while streaming one 20 MiB logical part at a time. Browser interruption evidence remains |
 | 3F | Add Go manifest/completion endpoints, user scope, validation, idempotent job creation, and structured redacted logs | 3A, 3B | Complete in merged PR #7 (`674f364`): bounded create/page/status/complete/delete, user-JWT/RLS adapter, idempotent job, and redacted two-user local probe |
-| 3G | Build import wizard states: instructions, review, upload, recovery, completion, warning, cancel, and cleanup | 3D, 3E, 3F | Directory upload states are implemented behind a fail-closed public release gate; ZIP and browser accessibility/mobile walkthrough remain |
-| 3H | Add abandoned/failed upload cleanup and import deletion path | 3B, 3C, 3F | Idempotent cleanup tests and object/metadata deletion evidence |
+| 3G | Build import wizard states: instructions, review, upload, recovery, completion, warning, cancel, and cleanup | 3D, 3E, 3F | Directory states merged in PR #8 and ZIP uses the same gated flow locally; browser accessibility/mobile/interruption walkthrough remains |
+| 3H | Add abandoned/failed upload cleanup and import deletion path | 3B, 3C, 3F | In progress: caller-owned expired-run RPC/API reconciliation, Storage-first deletion, least-privilege metadata writes, 46 pgTAP checks, and synthetic cleanup probe; system-wide scheduling is deferred to the Step 4 worker credential decision |
 | 3I | Provision or document staging integration and run browser-to-Storage-to-job smoke | INT-001/002, 3A-3H | Environment audit, synthetic hosted E2E, quota/failure result, no production data |
 
 ### Step 3 non-goals
@@ -102,6 +102,8 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | 2026-07-16 | Step 3 API/RLS persistence | Forward Storage policy fix, paged security-invoker RPCs, 38 pgTAP checks, Go API test/vet, and redacted two-user API probe | Green locally; direct TUS and browser E2E still pending |
 | 2026-07-16 | Step 3 API merge | PR #7 (`674f364`) merged after all GitHub checks passed | 3F complete; main remains fail-closed for direct upload |
 | 2026-07-16 | Step 3 direct TUS slice | Pinned `tus-js-client` 4.3.1, deterministic resume, source/part checksum validation, 6 MiB transport chunks, 20 MiB logical objects, 1 MiB-safe manifest paging, and generated-byte local create/upload/complete/delete probe | Green locally; feature gated, ZIP adapter/browser interruption evidence/hosted proof remain |
+| 2026-07-16 | Step 3 direct TUS merge | PR #8 (`268e087`) merged after Documentation, Web, API, and Supabase checks passed | Directory upload remains fail-closed by default; Step 3 continues |
+| 2026-07-16 | Step 3 ZIP/cleanup slice | Bounded ZIP part stream, archive/part revalidation, expired owner-run cleanup endpoint, direct metadata writes revoked, ADR 0004, 19 web tests, 46 pgTAP checks, and synthetic cleanup convergence | Green locally; browser interruption/accessibility and hosted staging evidence remain |
 
 Do not record credential values, email addresses, raw health content, or private incident details in this log.
 
