@@ -89,7 +89,7 @@ Every failure maps to a stable code, retryability flag, safe user action, and su
 | DEC-001 | Shared staging Supabase vs per-PR Branching | Release owner | 3I | Shared staging with synthetic data; serialize migrations |
 | DEC-002 | Stable Vercel custom Staging vs branch Preview | Release owner | 3I | Branch-specific Preview fallback |
 | DEC-007 | Go foreground/background Supabase access model | Engineering owner | 3F / Step 4 | Forward user JWT + publishable key for foreground RLS; decide dedicated worker credential before Step 4 |
-| LIB-001 | ZIP streaming library | Engineering owner | 3D | Accepted for local spike: `fflate` 0.8.3 (MIT); real ZIP scanner remains gated |
+| LIB-001 | ZIP streaming library | Engineering owner | 3D | Accepted: `fflate` 0.8.3 (MIT) powers bounded local ZIP review; direct upload remains gated |
 | LIB-002 | Incremental SHA-256 library | Engineering owner | 3D | Accepted: `hash-wasm` 4.12.0 (MIT) in the Worker; avoids whole-file buffering |
 | LIB-003 | TUS client | Engineering owner | 3E | `tus-js-client`, pinned and lockfile-reviewed, following Supabase's documented endpoint/chunk rules |
 | LIMIT-001 | Confirm hosted Supabase Storage/project quotas and configured bucket limit | Billing/release owner | 3I | Do not infer current plan limits from old notes; record dashboard/docs evidence |
@@ -265,7 +265,7 @@ For each TUS/ZIP/hash package, record version, lockfile, license, maintenance/se
 | 3A | OpenAPI/domain contract, state machine, limits, idempotency, decision documentation | Step 2 | Contract/tests/docs only | In progress: metadata-only Go contract and state/limit tests added |
 | 3B | Database migration, constraints/indexes/grants/RLS; repository adapter in 3F | 3A | Schema + tests, feature unused | In progress: local migration, RLS, grants, and pgTAP tests added |
 | 3C | Private bucket configuration and Storage policies/tests | 3A, 3B | Storage boundary, feature unused | In progress: private bucket and owner path policies added; direct upload probes follow in 3E |
-| 3D | Worker scanner/classifier/hash and ZIP/library spikes | 3A, LIB-001/002 | Local manifest UI behind disabled entry | In progress: directory Worker, policy tests, and ZIP stream spike; ZIP UI remains gated |
+| 3D | Worker scanner/classifier/hash and ZIP/library spikes | 3A, LIB-001/002 | Local manifest UI behind disabled entry | In progress: directory and ZIP Worker review, incremental hashes, path/size/ratio limits, and synthetic tests; duplicate/cancel UX remains pending |
 | 3E | TUS uploader/reconcile/pause/resume/retry | 3C, 3D, LIB-003 | Synthetic local upload behind feature gate | Planned |
 | 3F | Go create/page/complete/status/delete endpoints and idempotent job boundary | 3A-3C | API integrated, UI still gated | Planned |
 | 3G | Import wizard UX/accessibility/recovery | 3D-3F | Enable locally after E2E | Planned |

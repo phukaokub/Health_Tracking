@@ -38,7 +38,7 @@ The Step 3 scanner must classify an export in a browser Worker, hash file conten
 
 ## Decision
 
-Use pinned `fflate` 0.8.3 for the ZIP streaming probe and future ZIP reader, and `hash-wasm` 4.12.0 for incremental SHA-256 in the directory Worker. Use `tsx` 4.21.0 only as a development test runner for synthetic TypeScript unit tests. The first scanner slice enables local directory review only; ZIP review and upload remain gated until streaming ZIP checks, cancellation, and direct Storage/TUS integration are complete.
+Use pinned `fflate` 0.8.3 for bounded local ZIP review and `hash-wasm` 4.12.0 for incremental SHA-256 in the Worker. Use `tsx` 4.21.0 only as a development test runner for synthetic TypeScript unit tests. ZIP review enforces traversal, entry-count, metadata-size, total-size, and expansion-ratio controls. Upload remains gated until the explicit cancellation/recovery UX and direct Storage/TUS integration are complete.
 
 ## Consequences
 
@@ -51,7 +51,7 @@ Use pinned `fflate` 0.8.3 for the ZIP streaming probe and future ZIP reader, and
 ### Negative and follow-up
 
 - `npm audit --omit=dev` reports two existing moderate findings in the pinned Next/PostCSS dependency chain; no advisory was reported for the newly added scanner libraries. Review a compatible Next update separately rather than force-upgrading in this scanner change.
-- The initial UI intentionally has no upload action and does not yet scan ZIPs. Add real ZIP traversal/ratio/cancellation tests in 3D before enabling it.
+- The initial UI intentionally has no upload action. Add explicit cancellation UX and more archive-corruption/unsupported-compression fixtures before enabling upload.
 - Add package license/security review to the Step 8 dependency gate and re-evaluate these versions on upgrade.
 
 ## Validation and revisit trigger
