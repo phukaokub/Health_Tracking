@@ -63,3 +63,26 @@ jobs:
           fi
       - run: go vet ./...
       - run: go test ./...
+
+  supabase:
+    name: Supabase schema and RLS checks
+    runs-on: ubuntu-latest
+    env:
+      # Placeholder local-only values avoid enabling a real third-party OAuth
+      # integration in CI. The database tests do not exercise Google Auth.
+      SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID: ci-local-google-client
+      SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET: ci-local-google-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Start local Supabase
+        run: npx --yes supabase@2.109.1 start
+      - name: Lint schema
+        run: npx --yes supabase@2.109.1 db lint --local --fail-on error
+      - name: Run database tests
+        run: npx --yes supabase@2.109.1 test db --local supabase/tests
+      - name: Stop local Supabase
+        if: always()
+        run: npx --yes supabase@2.109.1 stop
