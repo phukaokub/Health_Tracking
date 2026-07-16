@@ -53,6 +53,7 @@ Supabase changes:
 npx supabase --help
 npx supabase db reset
 npx supabase db lint --local --fail-on error
+npx supabase test db --local supabase/tests
 ```
 
 `npx supabase db reset` deletes/recreates local database state. Use it intentionally for migration verification and never point it at a hosted project.

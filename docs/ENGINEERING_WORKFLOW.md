@@ -146,7 +146,7 @@ The change plan selects checks from this matrix. Commands are run from the ownin
 | Parser/normalization | Sanitized fixtures, malformed input, dedupe, deterministic output | Coverage/provenance review; no raw payload retained |
 | Production release | Full CI, staging smoke, migration review, release record | Production smoke, monitoring check, rollback target recorded |
 
-The current CI workflow enforces local-document links/credential-pattern checks, web lint/typecheck/build, and Go format/vet/test. Do not describe migration, parser, contract, Playwright, dependency/vulnerability, or repository-wide secret-scan gates as active until their workflows actually exist. Add those gates incrementally with the milestone that needs them, then enforce them before production in Step 8.
+The current CI workflow enforces local-document links/credential-pattern checks, web lint/typecheck/build, Go format/vet/test, and local Supabase migration/lint/pgTAP checks. Do not describe parser, browser E2E, dependency/vulnerability, or repository-wide secret-scan gates as active until their workflows actually exist. Add those gates incrementally with the milestone that needs them, then enforce them before production in Step 8.
 
 ## Review and evidence
 

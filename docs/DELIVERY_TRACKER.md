@@ -1,17 +1,17 @@
 # Delivery tracker
 
-Last reviewed: 2026-07-15
+Last reviewed: 2026-07-16
 
 This is the living status document. Update it at each meaningful handoff, accepted scope change, new blocker, pull-request transition, and release. Product intent belongs in `PROJECT_PLAN.md`; detailed change design belongs in a change plan.
 
 ## Current release
 
 - Release target: private non-clinical V1.
-- Current gate: Step 2 is user-accepted and pull request [#2](https://github.com/phukaokub/Health_Tracking/pull/2) is open, mergeable, and green for `Web checks` and `API checks` at commit `5fdefca`.
-- Current branch: `codex/complete-step-2`.
-- Next milestone: Step 3, import manifest and resumable upload.
-- Proposed Step 3 plan: [`plans/0003-import-manifest-upload.md`](plans/0003-import-manifest-upload.md).
-- Before Step 3 starts: merge Step 2, accept the Step 3 change plan and Go foreground Supabase access model, and decide how the first hosted preview isolates Supabase data/migrations. Local-only Step 3 work may proceed before hosted provisioning if the hosted dependency is explicitly deferred to its integration work package.
+- Current gate: Step 2 is done: PR [#2](https://github.com/phukaokub/Health_Tracking/pull/2) merged after all CI checks passed at `0b3ad3d`.
+- Current branch: `codex/step-3-import-foundation`.
+- Active milestone: Step 3, import manifest and resumable upload; local work packages 3A-3C are in progress.
+- Active Step 3 plan: [`plans/0003-import-manifest-upload.md`](plans/0003-import-manifest-upload.md).
+- The Go foreground access decision is required before persistence endpoints (3F), and preview-isolation is required only before hosted verification (3I). Neither blocks the local contract, RLS, or Storage foundation.
 - Production status: not provisioned and not approved for user data.
 
 ## Milestones
@@ -20,8 +20,8 @@ This is the living status document. Update it at each meaningful handoff, accept
 | --- | --- | --- | --- |
 | 0 | Repository and developer baseline | Done on `main` | Repository structure and local commands established |
 | 1 | Local Next.js/Go vertical slice | Done on `main` | Web/API baseline merged in PR #1 |
-| 2 | Supabase Auth, profiles, SSR sessions, JWT verification, and RLS | Accepted; in review | Local email via Mailpit and Google login verified; PR #2 checks green; merge pending |
-| 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | Planned; next | Step 3 change plan and preview-isolation decision |
+| 2 | Supabase Auth, profiles, SSR sessions, JWT verification, and RLS | Done | Local email via Mailpit and Google login verified; PR #2 merged after Documentation, Web, and API checks passed |
+| 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | In progress (3A-3C) | Local contract/migration/RLS/Storage test evidence; next: scanner and API persistence decision |
 | 4 | Streaming Huawei JSON parsing, normalization, provenance, and dedupe | Planned | Sanitized mapping/fixture review after Step 3 job boundary |
 | 5 | Legacy XLS allowlisted backfill and precedence | Planned | Parser library spike and sanitized fixture acceptance |
 | 6 | First summary, goals, reports, and dashboard | Planned | Normalized data contracts and UX acceptance |
@@ -29,17 +29,17 @@ This is the living status document. Update it at each meaningful handoff, accept
 | 8 | Security/privacy hardening, deletion, diagnostics, CI expansion, and operational readiness | Planned | Production-readiness review and observability/provider decisions |
 | 9 | Hosted staging/production integration, migration/deployment automation, launch, and rollback proof | Planned | Completed release record and explicit production approval |
 
-`Accepted` is intentionally distinct from `Done`: Step 2 is accepted by the user but remains open until its pull request is merged and the tracker records that merge.
+`Done` means the user has accepted the outcome, the pull request is merged, and the tracker contains the resulting evidence.
 
 ## Step 3 work-package baseline
 
-This baseline becomes a dedicated change plan before implementation. Work packages may be split into separate pull requests if each keeps `main` safe and the dependencies remain explicit.
+This baseline is implemented through the active change plan. Work packages may be split into separate pull requests if each keeps `main` safe and the dependencies remain explicit.
 
 | ID | Work package | Dependencies | Completion evidence |
 | --- | --- | --- | --- |
-| 3A | Define import API/OpenAPI contract, manifest version, state machine, error taxonomy, limits, and idempotency keys | Step 2 merge | Reviewed contract examples and invalid/duplicate request tests |
-| 3B | Add `import_runs`, files, parts, jobs, errors, required grants, RLS, indexes, and retention metadata | 3A | Clean reset/lint; owner CRUD and cross-user denial tests |
-| 3C | Add private Storage bucket/path policies and upload authorization design | 3A, 3B | Owner create/read/delete; cross-user and path-tamper denial; upsert operations tested separately |
+| 3A | Define import API/OpenAPI contract, manifest version, state machine, error taxonomy, limits, and idempotency keys | Step 2 merge | In progress: Go contract validates bounded, metadata-only manifests and transition rules |
+| 3B | Add `import_runs`, files, parts, jobs, errors, required grants, RLS, indexes, and retention metadata | 3A | In progress: local migration and owner/cross-user pgTAP coverage pass; endpoint persistence follows in 3F |
+| 3C | Add private Storage bucket/path policies and upload authorization design | 3A, 3B | In progress: private 20 MiB bucket and owner path policies migrate/test locally; real TUS path-tamper testing follows in 3E |
 | 3D | Build Web Worker folder/ZIP scanner, classification, SHA-256 manifest, duplicate detection, and cancellation | 3A | Unit fixtures including duplicates, empty/unsupported files, cancellation, and no raw data logging |
 | 3E | Build bounded part upload with checksum, retry/backoff, pause/resume, persisted client state, and max concurrency | 3C, 3D | Synthetic multi-part fixture, network interruption, resume, checksum mismatch, request-size assertion |
 | 3F | Add Go manifest/completion endpoints, user scope, validation, idempotent job creation, and structured redacted logs | 3A, 3B | API/domain tests for valid, unauthorized, tampered, duplicate, and partial manifests |
@@ -84,7 +84,7 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | R-003 | Large upload exceeds browser memory, Storage, quota, or platform request limits | Medium/high | Streaming/part tests, 20 MiB cap, bounded concurrency, quota audit, direct Storage path | Step 3 control |
 | R-004 | Raw Huawei/health/GPS/ECG content leaks through fixtures, logs, screenshots, or telemetry | Medium/critical | Generated/sanitized fixtures, redaction tests, no raw payload persistence, review evidence | Continuous |
 | R-005 | Hosted email Auth is unreliable or restricted without custom SMTP | High/high before launch | Select provider, domain authentication, deliverability/rate-limit tests, Google fallback | Open |
-| R-006 | CI currently proves documentation, web build, and Go baselines, not migrations/RLS/E2E/repository-wide security | High/high before launch | Add gates with Steps 3-8 and make them required before Step 9 | Open |
+| R-006 | CI now proves documentation, web build, Go baseline, and local migration/RLS tests, but not browser E2E or repository-wide dependency/security scanning | Medium/high before launch | Add remaining gates with Steps 3-8 and make them required before Step 9 | Reduced; open |
 | R-007 | Application rollback is incompatible with a database migration | Medium/high | Expand/migrate/contract, staging compatibility tests, forward-repair runbook | Continuous |
 
 ## Evidence log
@@ -93,6 +93,8 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | --- | --- | --- | --- |
 | 2026-07-15 | Step 2 local Auth | Email confirmation through Mailpit, email/password login, Google OAuth, account profile read | User accepted |
 | 2026-07-15 | Step 2 CI fix | PR #2 `Web checks` and `API checks` for `5fdefca` | Green; merge pending |
+| 2026-07-16 | Step 2 merge | PR #2 Documentation, Web, and API checks | Green; squash-merged as `0b3ad3d` |
+| 2026-07-16 | Step 3 local 3A-3C | `migration up --local`, pgTAP owner isolation (19 tests), and `db lint` | Green; source bytes remain out of API/database metadata |
 
 Do not record credential values, email addresses, raw health content, or private incident details in this log.
 
@@ -102,3 +104,4 @@ Do not record credential values, email addresses, raw health content, or private
 | --- | --- | --- |
 | 2026-07-15 | Split operational hardening (Step 8) from production integration/release (Step 9) | Production environments, providers, migrations, release, and rollback require an independent acceptance gate |
 | 2026-07-15 | Added work-package, environment, integration, risk, evidence, and change-control structure | Earlier milestone prose did not expose provider/setup and production-readiness work |
+| 2026-07-16 | Began Step 3 local foundation after Step 2 merge | Establish owner-isolated import metadata and private Storage boundaries before scanner or uploader code |
