@@ -25,6 +25,7 @@ This register covers every external service that can affect development, authent
 | Transactional Auth SMTP | Confirmation, reset, and security email | Staging/production | Decision required before public email Auth | Email-provider and Supabase owners | Delivery, SPF/DKIM/DMARC, template links, bounce/rate-limit checks; Google login can remain fallback |
 | Vercel web project | Builds and serves Next.js | Preview/staging/production | Planned; local build is active | Vercel team/project owner | Build, page/Auth smoke, env audit, deployment diagnostics; rollback to known-good deployment |
 | Vercel API project | Builds and serves Go API | Preview/staging/production | Planned | Vercel team/project owner | Health/JWKS/authenticated route smoke; web must show a safe unavailable state on outage |
+| Background parser runtime | Executes bounded Step 4 normalization jobs; reads private import objects and writes normalized records | Staging/production | Decision required; proposal in ADR 0005 | Runtime, Supabase, and operations owners | Lease/checkpoint, timeout, retry, owner isolation, and synthetic failure probes must pass before enabling triggers |
 | DNS and custom domains | Stable web, API, and optional Auth/email domains | Staging/production | Decision required before Step 9 | Domain registrar/DNS owner | DNS/TLS checks and documented rollback to platform domains |
 | Error monitoring/observability provider | Redacted errors, traces, uptime, release health | Staging/production | Decision required in Step 8 | Operations owner | Synthetic failure and alert routing test; must never collect health values, JWTs, emails, GPS, or raw files |
 
@@ -147,7 +148,7 @@ Controls:
 | INT-004 | Production web/API domain and DNS provider | Before Step 9 production configuration | Platform domains only; no production launch |
 | INT-005 | Error monitoring, tracing, and uptime provider | During Step 8 | Structured local/platform logs with strict redaction; no health telemetry |
 | INT-006 | Supabase/Vercel plan upgrades for backups, branching, quotas, and availability | Before load/production readiness sign-off | Do not assume paid-only capability; document current limits |
-| INT-007 | Go foreground/background Supabase access model and least-privileged worker credential | Before Step 3 persistence and Step 4 worker execution | Foreground accepted in ADR 0002; no elevated worker credential until a separate Step 4 decision |
+| INT-007 | Go foreground/background Supabase access model and least-privileged worker credential | Before Step 4 worker execution | Foreground accepted in ADR 0002; review the least-privileged worker proposal in ADR 0005 before implementation |
 
 Accepted decisions move to an ADR when they are architectural or expensive to reverse, and their implementation status remains in [`DELIVERY_TRACKER.md`](DELIVERY_TRACKER.md).
 

@@ -18,7 +18,7 @@ This directory is the operating manual for planning, building, releasing, and ma
 
 Templates live in [`templates/`](templates/). A non-trivial change starts from `CHANGE_PLAN.md`; an architecture decision uses `ADR.md`; a production release uses `RELEASE_RECORD.md`.
 
-Instantiated active/upcoming plans live in [`plans/`](plans/). The proposed Step 3 plan is [`plans/0003-import-manifest-upload.md`](plans/0003-import-manifest-upload.md).
+Instantiated active/upcoming plans live in [`plans/`](plans/). Step 3 is recorded in [`plans/0003-import-manifest-upload.md`](plans/0003-import-manifest-upload.md); the proposed Step 4 design is [`plans/0004-huawei-json-normalization.md`](plans/0004-huawei-json-normalization.md) with its [`source coverage matrix`](plans/0004-source-coverage-matrix.md).
 
 ## Planning hierarchy
 
