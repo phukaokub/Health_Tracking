@@ -285,7 +285,7 @@ Each pull request updates this plan/tracker and contains a safe enable/disable b
 | Scanner | Directory + ZIP, duplicates, empty/excluded/unsupported, path traversal, cancellation, changing file | Worker unit tests |
 | Hash/slicing | Known vectors, 0/1/exact-boundary/over-boundary sizes, 70+ MiB generated file, no full-export buffer | Browser/unit memory assertions |
 | TUS | 6 MiB transport chunks, 20 MiB logical object, progress, offline, timeout, retry, refresh resume, 409, expired URL | Mock/local Storage tests |
-| Browser E2E | Instructions -> review -> upload -> queued, pause/reload/reselect resume, cancel/delete, mobile/keyboard/ARIA states, cross-owner denial | Green locally with generated 8 MiB ZIP in Chromium; CI gate awaits PR proof and hosted repeat remains |
+| Browser E2E | Instructions -> review -> upload -> queued, pause/reload/reselect resume, cancel/delete, mobile/keyboard/ARIA states, cross-owner denial | Green locally and in PR #11 Linux CI with generated 8 MiB ZIP in Chromium; hosted repeat remains |
 | Hosted staging | Auth callback, direct Storage hostname, metadata payload cap, quota error, Storage/API outage, redacted logs | Release-candidate evidence |
 
 Test fixtures are generated at runtime or committed only after sanitization review. CI must not need the personal export.

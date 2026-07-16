@@ -84,7 +84,7 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | R-003 | Large upload exceeds browser memory, Storage, quota, or platform request limits | Medium/high | Streaming/part tests, 20 MiB cap, bounded concurrency, quota audit, direct Storage path | Step 3 control |
 | R-004 | Raw Huawei/health/GPS/ECG content leaks through fixtures, logs, screenshots, or telemetry | Medium/critical | Generated/sanitized fixtures, redaction tests, no raw payload persistence, review evidence | Continuous |
 | R-005 | Hosted email Auth is unreliable or restricted without custom SMTP | High/high before launch | Select provider, domain authentication, deliverability/rate-limit tests, Google fallback | Open |
-| R-006 | CI proves documentation, web build, Go baseline, and local migration/RLS tests; this branch adds browser import E2E, while repository-wide dependency/security scanning is not required | Medium/high before launch | Validate the browser gate on GitHub, then add dependency/secret scanning before Step 9 | Reduced; open |
+| R-006 | CI proves documentation, web build, Go baseline, local migration/RLS tests, and generated browser import E2E; repository-wide dependency/security scanning is not required | Medium/high before launch | Keep the browser gate required and add dependency/secret scanning before Step 9 | Reduced; open |
 | R-007 | Application rollback is incompatible with a database migration | Medium/high | Expand/migrate/contract, staging compatibility tests, forward-repair runbook | Continuous |
 | R-008 | Next.js 16.2.10 currently brings a PostCSS advisory without a non-breaking stable npm-audit resolution | Medium/medium | Track upstream fixed release, avoid untrusted runtime CSS stringification, and verify upgrade through Step 8 dependency review; do not apply npm's breaking downgrade suggestion | Open |
 
@@ -109,6 +109,7 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | 2026-07-17 | Step 4 planning baseline | Detailed normalization plan, source-coverage matrix, and proposed background-worker access ADR | Drafted on `codex/step-4-plan`; implementation has not started |
 | 2026-07-17 | Step 4 planning merge | PR #10 (`741a2ea`) passed Documentation, Web, API, and Supabase checks | Merged; Step 4 implementation remains gated by acceptance of ADR 0005 and the source matrix |
 | 2026-07-17 | Step 3 real-browser acceptance | Pinned Playwright 1.61.1; generated 8 MiB ZIP; email/password SSR session; 390x844 keyboard/ARIA review; pause, reload/reselect resume, direct local TUS, one queued job, second-user 404, cancel/delete, and zero residual users/objects | Green locally; test exposed and fixed static browser bundling of `NEXT_PUBLIC_SUPABASE_URL`; hosted 3I remains |
+| 2026-07-17 | Step 3 browser CI gate | PR #11 head `f2c0016`: existing schema lint/46 pgTAP checks followed by Chromium Auth/import pause-resume and cancel-cleanup scenarios on Linux | Green in `Supabase schema and RLS checks` (4m40s); final PR rerun/merge pending |
 
 Do not record credential values, email addresses, raw health content, or private incident details in this log.
 
