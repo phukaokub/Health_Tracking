@@ -7,9 +7,9 @@ This is the living status document. Update it at each meaningful handoff, accept
 ## Current release
 
 - Release target: private non-clinical V1.
-- Current gate: Step 3 implementation PRs [#3](https://github.com/phukaokub/Health_Tracking/pull/3) through [#9](https://github.com/phukaokub/Health_Tracking/pull/9) are merged on `main` at `b79d63e`; hosted staging and browser acceptance evidence remain before the milestone is done.
-- Current branch: `codex/step-4-plan`, based on merged `main` at PR #9 (`b79d63e`).
-- Active milestone: close the Step 3 environment/acceptance gate while reviewing the proposed Step 4 normalization plan. No Step 3 implementation pull request is pending.
+- Current gate: Step 3 implementation PRs [#3](https://github.com/phukaokub/Health_Tracking/pull/3) through [#9](https://github.com/phukaokub/Health_Tracking/pull/9) are merged on `main` at `b79d63e`; local browser acceptance is green and hosted staging evidence remains before the milestone is done.
+- Current branch: `codex/step-3-browser-acceptance`, based on merged Step 4 planning PR #10 (`741a2ea`).
+- Active milestone: close the Step 3 hosted-environment gate. A generated 8 MiB ZIP now passes real Chromium pause, refresh/reselect resume, queue, cross-owner denial, cancel, and cleanup flows locally; staging remains unprovisioned.
 - Active Step 3 plan: [`plans/0003-import-manifest-upload.md`](plans/0003-import-manifest-upload.md).
 - The Go foreground access decision is accepted in [`decisions/0002-foreground-supabase-access.md`](decisions/0002-foreground-supabase-access.md). Preview isolation is required before hosted verification (3I).
 - Production status: not provisioned and not approved for user data.
@@ -21,7 +21,7 @@ This is the living status document. Update it at each meaningful handoff, accept
 | 0 | Repository and developer baseline | Done on `main` | Repository structure and local commands established |
 | 1 | Local Next.js/Go vertical slice | Done on `main` | Web/API baseline merged in PR #1 |
 | 2 | Supabase Auth, profiles, SSR sessions, JWT verification, and RLS | Done | Local email via Mailpit and Google login verified; PR #2 merged after Documentation, Web, and API checks passed |
-| 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | Acceptance pending | PRs #3-#9 merged; local automated suites and synthetic TUS/cleanup probes are green; hosted staging and browser walkthrough remain |
+| 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | Acceptance pending | PRs #3-#9 merged and local real-browser acceptance is green; dedicated hosted staging plus quota/outage smoke remains |
 | 4 | Streaming Huawei JSON parsing, normalization, provenance, and dedupe | Proposed plan | Review [`plans/0004-huawei-json-normalization.md`](plans/0004-huawei-json-normalization.md), source coverage, and worker access ADR before implementation |
 | 5 | Legacy XLS allowlisted backfill and precedence | Planned | Parser library spike and sanitized fixture acceptance |
 | 6 | First summary, goals, reports, and dashboard | Planned | Normalized data contracts and UX acceptance |
@@ -40,10 +40,10 @@ This baseline is implemented through the active change plan. Work packages may b
 | 3A | Define import API/OpenAPI contract, manifest version, state machine, error taxonomy, limits, and idempotency keys | Step 2 merge | Complete in PR #3 and extended by PR #7 |
 | 3B | Add `import_runs`, files, parts, jobs, errors, required grants, RLS, indexes, and retention metadata | 3A | Complete in PRs #3/#7; 38 pgTAP checks include invoker RPC paging/idempotency and cross-owner denial |
 | 3C | Add private Storage bucket/path policies and upload authorization design | 3A, 3B | Complete in PRs #3/#7; corrected owner path passed real local TUS create/upload/verify/delete |
-| 3D | Build Web Worker folder/ZIP scanner, classification, SHA-256 manifest, duplicate detection, and cancellation | 3A | Scanner slices merged in PRs #4-#6; authenticated browser interaction and changing-file evidence remain |
-| 3E | Build bounded part upload with checksum, retry/backoff, pause/resume, persisted client state, and max concurrency | 3C, 3D | Complete in PRs #8/#9 for directory and ZIP sources; browser interruption evidence remains an acceptance gate |
+| 3D | Build Web Worker folder/ZIP scanner, classification, SHA-256 manifest, duplicate detection, and cancellation | 3A | Complete in PRs #4-#6 plus generated ZIP browser selection and changing-source unit evidence |
+| 3E | Build bounded part upload with checksum, retry/backoff, pause/resume, persisted client state, and max concurrency | 3C, 3D | Complete in PRs #8/#9; generated multi-chunk ZIP passed pause, refresh/reselect, deterministic TUS resume, checksum, queue, and cleanup in real Chromium |
 | 3F | Add Go manifest/completion endpoints, user scope, validation, idempotent job creation, and structured redacted logs | 3A, 3B | Complete in merged PR #7 (`674f364`): bounded create/page/status/complete/delete, user-JWT/RLS adapter, idempotent job, and redacted two-user local probe |
-| 3G | Build import wizard states: instructions, review, upload, recovery, completion, warning, cancel, and cleanup | 3D, 3E, 3F | Complete in PRs #8/#9; browser accessibility/mobile/interruption walkthrough remains an acceptance gate |
+| 3G | Build import wizard states: instructions, review, upload, recovery, completion, warning, cancel, and cleanup | 3D, 3E, 3F | Complete in PRs #8/#9; 390x844 Chromium flow verifies keyboard focus order, ARIA progress state, interruption recovery, queue, and cancel/delete messaging |
 | 3H | Add abandoned/failed upload cleanup and import deletion path | 3B, 3C, 3F | Complete in PR #9 for caller-owned reconciliation and deletion; system-wide scheduling is deferred to the Step 4 worker decision |
 | 3I | Provision or document staging integration and run browser-to-Storage-to-job smoke | INT-001/002, 3A-3H | Environment audit, synthetic hosted E2E, quota/failure result, no production data |
 
@@ -84,8 +84,9 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | R-003 | Large upload exceeds browser memory, Storage, quota, or platform request limits | Medium/high | Streaming/part tests, 20 MiB cap, bounded concurrency, quota audit, direct Storage path | Step 3 control |
 | R-004 | Raw Huawei/health/GPS/ECG content leaks through fixtures, logs, screenshots, or telemetry | Medium/critical | Generated/sanitized fixtures, redaction tests, no raw payload persistence, review evidence | Continuous |
 | R-005 | Hosted email Auth is unreliable or restricted without custom SMTP | High/high before launch | Select provider, domain authentication, deliverability/rate-limit tests, Google fallback | Open |
-| R-006 | CI now proves documentation, web build, Go baseline, and local migration/RLS tests, but not browser E2E or repository-wide dependency/security scanning | Medium/high before launch | Add remaining gates with Steps 3-8 and make them required before Step 9 | Reduced; open |
+| R-006 | CI proves documentation, web build, Go baseline, local migration/RLS tests, and generated browser import E2E; repository-wide dependency/security scanning is not required | Medium/high before launch | Keep the browser gate required and add dependency/secret scanning before Step 9 | Reduced; open |
 | R-007 | Application rollback is incompatible with a database migration | Medium/high | Expand/migrate/contract, staging compatibility tests, forward-repair runbook | Continuous |
+| R-008 | Next.js 16.2.10 currently brings a PostCSS advisory without a non-breaking stable npm-audit resolution | Medium/medium | Track upstream fixed release, avoid untrusted runtime CSS stringification, and verify upgrade through Step 8 dependency review; do not apply npm's breaking downgrade suggestion | Open |
 
 ## Evidence log
 
@@ -106,6 +107,9 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | 2026-07-16 | Step 3 ZIP/cleanup slice | Bounded ZIP part stream, archive/part revalidation, expired owner-run cleanup endpoint, direct metadata writes revoked, ADR 0004, 19 web tests, 46 pgTAP checks, and synthetic cleanup convergence | Green locally; browser interruption/accessibility and hosted staging evidence remain |
 | 2026-07-16 | Step 3 ZIP/cleanup merge | PR #9 (`b79d63e`) merged after all required checks passed | All Step 3 implementation PRs #3-#9 are merged; only environment/browser acceptance remains |
 | 2026-07-17 | Step 4 planning baseline | Detailed normalization plan, source-coverage matrix, and proposed background-worker access ADR | Drafted on `codex/step-4-plan`; implementation has not started |
+| 2026-07-17 | Step 4 planning merge | PR #10 (`741a2ea`) passed Documentation, Web, API, and Supabase checks | Merged; Step 4 implementation remains gated by acceptance of ADR 0005 and the source matrix |
+| 2026-07-17 | Step 3 real-browser acceptance | Pinned Playwright 1.61.1; generated 8 MiB ZIP; email/password SSR session; 390x844 keyboard/ARIA review; pause, reload/reselect resume, direct local TUS, one queued job, second-user 404, cancel/delete, and zero residual users/objects | Green locally; test exposed and fixed static browser bundling of `NEXT_PUBLIC_SUPABASE_URL`; hosted 3I remains |
+| 2026-07-17 | Step 3 browser CI gate | PR #11 head `f2c0016`: existing schema lint/46 pgTAP checks followed by Chromium Auth/import pause-resume and cancel-cleanup scenarios on Linux | Green in `Supabase schema and RLS checks` (4m40s); final PR rerun/merge pending |
 
 Do not record credential values, email addresses, raw health content, or private incident details in this log.
 

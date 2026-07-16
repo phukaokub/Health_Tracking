@@ -5,13 +5,13 @@
 - Change ID: STEP-003
 - Milestone/work packages: Step 3 / 3A-3I
 - Owner: repository maintainer with Codex implementation support
-- Status: in progress; 3A-3F and directory 3E/3G merged, ZIP 3E/3G and cleanup 3H under local verification
+- Status: implementation merged in PRs #3-#9; local real-browser acceptance is green; hosted work package 3I remains
 - Baseline commit: `0b3ad3df618505eab31b40663e794f915d679227` (Step 2 merge)
-- Branch: `codex/step-3-zip-cleanup`
+- Branch: `codex/step-3-browser-acceptance`
 - Related records: [`../IMPLEMENTATION_STEPS.md`](../IMPLEMENTATION_STEPS.md), [`../DELIVERY_TRACKER.md`](../DELIVERY_TRACKER.md), ADR 0001, ADR 0002, ADR 0003, ADR 0004, DEC-001, DEC-002, DEC-007
 - Target environments: local, CI, PR preview, staging
 - Explicitly excluded environment: production
-- Last updated: 2026-07-16
+- Last updated: 2026-07-17
 
 ## Outcome
 
@@ -285,7 +285,7 @@ Each pull request updates this plan/tracker and contains a safe enable/disable b
 | Scanner | Directory + ZIP, duplicates, empty/excluded/unsupported, path traversal, cancellation, changing file | Worker unit tests |
 | Hash/slicing | Known vectors, 0/1/exact-boundary/over-boundary sizes, 70+ MiB generated file, no full-export buffer | Browser/unit memory assertions |
 | TUS | 6 MiB transport chunks, 20 MiB logical object, progress, offline, timeout, retry, refresh resume, 409, expired URL | Mock/local Storage tests |
-| Browser E2E | Instructions -> review -> upload -> queued, partial failure, pause/resume, cancel/delete, mobile/keyboard/screen states | Automated E2E + walkthrough |
+| Browser E2E | Instructions -> review -> upload -> queued, pause/reload/reselect resume, cancel/delete, mobile/keyboard/ARIA states, cross-owner denial | Green locally and in PR #11 Linux CI with generated 8 MiB ZIP in Chromium; hosted repeat remains |
 | Hosted staging | Auth callback, direct Storage hostname, metadata payload cap, quota error, Storage/API outage, redacted logs | Release-candidate evidence |
 
 Test fixtures are generated at runtime or committed only after sanitization review. CI must not need the personal export.
@@ -314,12 +314,12 @@ Stop immediately for any cross-user access, browser-visible secret, source bytes
 
 ## Definition of Ready gaps
 
-- [ ] Step 2 merged.
+- [x] Step 2 merged.
 - [ ] DEC-001 accepted.
 - [ ] DEC-002 accepted or explicitly deferred until 3I.
 - [x] DEC-007 foreground access model accepted in ADR 0002.
-- [ ] Manifest page cap and exact path-retention/display rule accepted in 3A.
-- [ ] TUS/ZIP/hash spikes identify dependencies and limits.
+- [x] Manifest page cap and privacy-safe path-retention/display rule implemented in 3A/3F.
+- [x] TUS/ZIP/hash dependencies and limits implemented and verified locally.
 - [ ] Hosted staging account/plan/quota owner identified before 3I.
 
 ## Approval requested
@@ -332,6 +332,7 @@ Approve this plan's outcome, non-goals, work-package order, proposed foreground 
 | --- | --- | --- | --- |
 | 2026-07-15 | Initial instantiated plan created from the new SDLC template | Makes environment, provider, secret, state, test, cleanup, and rollback work explicit before coding | Proposed |
 | 2026-07-16 | Corrected merged PR status and accepted foreground user-JWT/RLS access | PRs #3-#6 are delivery evidence; remaining Step 3 work is tracked independently | Accepted ADR 0002 |
+| 2026-07-17 | Added reproducible real-browser acceptance after PRs #3-#9 merged | Found and fixed dynamic public-env lookup; proves interrupted ZIP resume, one job, owner isolation, and cleanup with generated data | Local gate accepted; hosted 3I still required |
 
 ## Current primary references
 

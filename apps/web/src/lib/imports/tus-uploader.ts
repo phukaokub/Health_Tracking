@@ -116,7 +116,9 @@ export class DirectImportUploader {
 
   private async uploadPart(blob: Blob, objectPath: string, contentSha256: string, onProgress: (bytes: number) => void): Promise<void> {
     const accessToken = await getAccessToken();
-    const endpoint = deriveTUSEndpoint(requiredEnv("NEXT_PUBLIC_SUPABASE_URL"));
+    const supabaseURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseURL) throw new Error("supabase_not_configured");
+    const endpoint = deriveTUSEndpoint(supabaseURL);
     await new Promise<void>((resolve, reject) => {
       const upload = new Upload(blob, {
         endpoint,
@@ -184,10 +186,4 @@ async function getAccessToken(): Promise<string> {
 async function sha256Blob(blob: Blob): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-function requiredEnv(name: "NEXT_PUBLIC_SUPABASE_URL"): string {
-  const value = process.env[name];
-  if (!value) throw new Error("supabase_not_configured");
-  return value;
 }
