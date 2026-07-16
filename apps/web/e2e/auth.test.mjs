@@ -9,6 +9,12 @@ test("auth: anonymous users are redirected away from account settings", async ()
   assert.equal(response.headers.get("location"), "/auth/sign-in?error=authentication-required");
 });
 
+test("auth: anonymous users are redirected away from import review", async () => {
+  const response = await fetch(`${webURL}/import`, { redirect: "manual" });
+  assert.equal(response.status, 307);
+  assert.equal(response.headers.get("location"), "/auth/sign-in?error=authentication-required");
+});
+
 test("auth: sign-in page exposes email/password and Google OAuth entry points", async () => {
   const response = await fetch(`${webURL}/auth/sign-in`);
   assert.equal(response.status, 200);
