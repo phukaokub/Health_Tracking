@@ -29,6 +29,8 @@ developer workstation
 - CI must not require hosted secrets for lint, typecheck, unit tests, or a production build. Runtime integration tests use a dedicated environment and explicit protection gate.
 - Production migrations and application deployments use the same commit/release record; no ad hoc dashboard schema edits.
 
+Provider audit on 2026-07-17 found an active `Health_Tracking` Supabase candidate (`gdccossstmochzfgjqxz`, `ap-southeast-1`) and no Vercel projects. The candidate is not yet designated staging: it has no repository migration history and contains an untracked public `SECURITY DEFINER` function reported by Security Advisor. Do not read keys, apply migrations, or configure applications against it until the user confirms its intended purpose and authorizes remediation/provisioning.
+
 ## Configuration classifications
 
 - `public`: designed to be visible in browser bundles or URLs. It is still environment-specific configuration.

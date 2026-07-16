@@ -5,9 +5,9 @@
 - Change ID: STEP-003
 - Milestone/work packages: Step 3 / 3A-3I
 - Owner: repository maintainer with Codex implementation support
-- Status: implementation merged in PRs #3-#9; local real-browser acceptance is green; hosted work package 3I remains
+- Status: implementation and local/CI browser acceptance merged through PR #11; hosted work package 3I is waiting for candidate-project confirmation and remediation approval
 - Baseline commit: `0b3ad3df618505eab31b40663e794f915d679227` (Step 2 merge)
-- Branch: `codex/step-3-browser-acceptance`
+- Branch: `codex/step-3-hosted-audit`
 - Related records: [`../IMPLEMENTATION_STEPS.md`](../IMPLEMENTATION_STEPS.md), [`../DELIVERY_TRACKER.md`](../DELIVERY_TRACKER.md), ADR 0001, ADR 0002, ADR 0003, ADR 0004, DEC-001, DEC-002, DEC-007
 - Target environments: local, CI, PR preview, staging
 - Explicitly excluded environment: production
@@ -320,7 +320,7 @@ Stop immediately for any cross-user access, browser-visible secret, source bytes
 - [x] DEC-007 foreground access model accepted in ADR 0002.
 - [x] Manifest page cap and privacy-safe path-retention/display rule implemented in 3A/3F.
 - [x] TUS/ZIP/hash dependencies and limits implemented and verified locally.
-- [ ] Hosted staging account/plan/quota owner identified before 3I.
+- [ ] Confirm the discovered `Health_Tracking` project as staging (or approve a replacement), review its untracked security-definer function, and identify quota/billing ownership before 3I mutation.
 
 ## Approval requested
 
@@ -333,6 +333,7 @@ Approve this plan's outcome, non-goals, work-package order, proposed foreground 
 | 2026-07-15 | Initial instantiated plan created from the new SDLC template | Makes environment, provider, secret, state, test, cleanup, and rollback work explicit before coding | Proposed |
 | 2026-07-16 | Corrected merged PR status and accepted foreground user-JWT/RLS access | PRs #3-#6 are delivery evidence; remaining Step 3 work is tracked independently | Accepted ADR 0002 |
 | 2026-07-17 | Added reproducible real-browser acceptance after PRs #3-#9 merged | Found and fixed dynamic public-env lookup; proves interrupted ZIP resume, one job, owner isolation, and cleanup with generated data | Local gate accepted; hosted 3I still required |
+| 2026-07-17 | Audited connected hosted providers after PR #11 merged | Active Supabase candidate has no repository migrations and two Security Advisor warnings; Vercel has no projects | No mutation; explicit user confirmation required before 3I |
 
 ## Current primary references
 
