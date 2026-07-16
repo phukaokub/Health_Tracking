@@ -8,7 +8,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
+
+	"github.com/phukaokub/Health_Tracking/services/api/internal/auth"
+	"github.com/phukaokub/Health_Tracking/services/api/internal/httpapi"
 )
 
 const version = "0.1.0"
@@ -31,6 +35,11 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/health", healthHandler)
+	verifier, err := newVerifier(context.Background())
+	if err != nil {
+		log.Fatalf("initialize auth verifier: %v", err)
+	}
+	mux.Handle("/api/v1/me", httpapi.RequireUser(verifier, http.HandlerFunc(currentUserHandler)))
 
 	server := &http.Server{
 		Addr:              ":" + port,
@@ -45,6 +54,35 @@ func main() {
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
+}
+
+func newVerifier(ctx context.Context) (*auth.Verifier, error) {
+	baseURL := strings.TrimRight(os.Getenv("SUPABASE_URL"), "/")
+	if baseURL == "" {
+		baseURL = "http://127.0.0.1:54321"
+	}
+	issuer := os.Getenv("SUPABASE_JWT_ISSUER")
+	if issuer == "" {
+		issuer = baseURL + "/auth/v1"
+	}
+	audience := os.Getenv("SUPABASE_JWT_AUDIENCE")
+	if audience == "" {
+		audience = "authenticated"
+	}
+	jwks, err := auth.FetchJWKS(ctx, issuer+"/.well-known/jwks.json")
+	if err != nil {
+		return nil, err
+	}
+	return auth.NewVerifier(issuer, audience, jwks)
+}
+
+func currentUserHandler(w http.ResponseWriter, r *http.Request) {
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing_user_context"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"user_id": user.ID})
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {

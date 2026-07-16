@@ -13,6 +13,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  docs:
+    name: Documentation checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node scripts/check-docs.mjs
+
   web:
     name: Web checks
     runs-on: ubuntu-latest
@@ -43,6 +53,13 @@ jobs:
         with:
           go-version: '1.21.x'
           cache-dependency-path: services/api/go.mod
-      - run: gofmt -l .
+      - name: Check formatting
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "The following Go files need gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+      - run: go vet ./...
       - run: go test ./...
-

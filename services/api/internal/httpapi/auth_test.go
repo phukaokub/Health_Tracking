@@ -15,7 +15,7 @@ type stubVerifier struct {
 
 func (s stubVerifier) Verify(token string) (auth.User, error) { return s.user, s.err }
 
-func TestRequireUserAcceptsBearerToken(t *testing.T) {
+func TestAuthRequireUserAcceptsBearerToken(t *testing.T) {
 	handler := RequireUser(stubVerifier{user: auth.User{ID: "user-1"}}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, ok := auth.UserFromContext(r.Context())
 		if !ok || user.ID != "user-1" {
@@ -33,7 +33,7 @@ func TestRequireUserAcceptsBearerToken(t *testing.T) {
 	}
 }
 
-func TestRequireUserRejectsMissingBearerToken(t *testing.T) {
+func TestAuthRequireUserRejectsMissingBearerToken(t *testing.T) {
 	handler := RequireUser(stubVerifier{}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { t.Fatal("next should not run") }))
 	res := httptest.NewRecorder()
 	handler.ServeHTTP(res, httptest.NewRequest(http.MethodGet, "/private", nil))
