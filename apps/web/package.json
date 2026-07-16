@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "test:unit": "tsx --test src/lib/imports/*.test.ts",
     "test:e2e": "node e2e/run-tests.mjs"
   },
   "dependencies": {
@@ -16,6 +17,8 @@
     "@supabase/supabase-js": "^2.110.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "fflate": "^0.8.3",
+    "hash-wasm": "^4.12.0",
     "lucide-react": "^1.24.0",
     "next": "16.2.10",
     "react": "19.2.4",
@@ -32,6 +35,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

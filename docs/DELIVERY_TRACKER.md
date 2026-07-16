@@ -21,7 +21,7 @@ This is the living status document. Update it at each meaningful handoff, accept
 | 0 | Repository and developer baseline | Done on `main` | Repository structure and local commands established |
 | 1 | Local Next.js/Go vertical slice | Done on `main` | Web/API baseline merged in PR #1 |
 | 2 | Supabase Auth, profiles, SSR sessions, JWT verification, and RLS | Done | Local email via Mailpit and Google login verified; PR #2 merged after Documentation, Web, and API checks passed |
-| 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | In progress (3A-3C) | Local contract/migration/RLS/Storage test evidence; next: scanner and API persistence decision |
+| 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | In progress (3A-3D) | Local contract/migration/RLS/Storage evidence plus Worker directory review; next: ZIP hardening and API persistence decision |
 | 4 | Streaming Huawei JSON parsing, normalization, provenance, and dedupe | Planned | Sanitized mapping/fixture review after Step 3 job boundary |
 | 5 | Legacy XLS allowlisted backfill and precedence | Planned | Parser library spike and sanitized fixture acceptance |
 | 6 | First summary, goals, reports, and dashboard | Planned | Normalized data contracts and UX acceptance |
@@ -40,7 +40,7 @@ This baseline is implemented through the active change plan. Work packages may b
 | 3A | Define import API/OpenAPI contract, manifest version, state machine, error taxonomy, limits, and idempotency keys | Step 2 merge | In progress: Go contract validates bounded, metadata-only manifests and transition rules |
 | 3B | Add `import_runs`, files, parts, jobs, errors, required grants, RLS, indexes, and retention metadata | 3A | In progress: local migration and owner/cross-user pgTAP coverage pass; endpoint persistence follows in 3F |
 | 3C | Add private Storage bucket/path policies and upload authorization design | 3A, 3B | In progress: private 20 MiB bucket and owner path policies migrate/test locally; real TUS path-tamper testing follows in 3E |
-| 3D | Build Web Worker folder/ZIP scanner, classification, SHA-256 manifest, duplicate detection, and cancellation | 3A | Unit fixtures including duplicates, empty/unsupported files, cancellation, and no raw data logging |
+| 3D | Build Web Worker folder/ZIP scanner, classification, SHA-256 manifest, duplicate detection, and cancellation | 3A | In progress: Worker directory classification/incremental hash, path policy tests, and synthetic ZIP stream spike; ZIP/cancellation/duplicates remain pending |
 | 3E | Build bounded part upload with checksum, retry/backoff, pause/resume, persisted client state, and max concurrency | 3C, 3D | Synthetic multi-part fixture, network interruption, resume, checksum mismatch, request-size assertion |
 | 3F | Add Go manifest/completion endpoints, user scope, validation, idempotent job creation, and structured redacted logs | 3A, 3B | API/domain tests for valid, unauthorized, tampered, duplicate, and partial manifests |
 | 3G | Build import wizard states: instructions, review, upload, recovery, completion, warning, cancel, and cleanup | 3D, 3E, 3F | Browser walkthrough and E2E with accessible/mobile states |
@@ -95,6 +95,7 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | 2026-07-15 | Step 2 CI fix | PR #2 `Web checks` and `API checks` for `5fdefca` | Green; merge pending |
 | 2026-07-16 | Step 2 merge | PR #2 Documentation, Web, and API checks | Green; squash-merged as `0b3ad3d` |
 | 2026-07-16 | Step 3 local 3A-3C | `migration up --local`, pgTAP owner isolation (19 tests), and `db lint` | Green; source bytes remain out of API/database metadata |
+| 2026-07-16 | Step 3 local 3D slice | Worker directory review, synthetic scanner/ZIP-stream tests, authenticated import-review redirect | Green locally; no upload or ZIP UI enabled |
 
 Do not record credential values, email addresses, raw health content, or private incident details in this log.
 
