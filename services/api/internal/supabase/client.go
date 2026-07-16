@@ -88,6 +88,27 @@ func (client *Client) DeleteImport(ctx context.Context, accessToken, importID st
 	return client.rpc(ctx, accessToken, "finish_import_delete", map[string]string{"p_import_id": importID})
 }
 
+func (client *Client) CleanupImports(ctx context.Context, accessToken string) (imports.CleanupResult, error) {
+	var expired []struct {
+		ImportID string `json:"import_id"`
+	}
+	if err := client.requestJSON(ctx, accessToken, http.MethodPost, "/rest/v1/rpc/list_expired_imports", map[string]int{"p_limit": 25}, &expired); err != nil {
+		return imports.CleanupResult{}, err
+	}
+	result := imports.CleanupResult{}
+	for _, item := range expired {
+		if _, err := client.DeleteImport(ctx, accessToken, item.ImportID); err != nil {
+			var apiError *APIError
+			if errors.As(err, &apiError) && apiError.Status == http.StatusNotFound {
+				continue
+			}
+			return result, err
+		}
+		result.DeletedCount++
+	}
+	return result, nil
+}
+
 func (client *Client) rpc(ctx context.Context, accessToken, name string, body any) (imports.Snapshot, error) {
 	var snapshot imports.Snapshot
 	if err := client.requestJSON(ctx, accessToken, http.MethodPost, "/rest/v1/rpc/"+name, body, &snapshot); err != nil {

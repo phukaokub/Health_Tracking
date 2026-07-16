@@ -21,6 +21,7 @@ export type ImportPartPlan = {
 export type ImportFilePlan = {
   id: string;
   client_file_id: string;
+  source_family: string;
   inclusion_state: "planned" | "skipped_duplicate" | "excluded" | "uploaded" | "verified" | "deleted";
   logical_bytes: number;
   content_sha256: string;
@@ -113,6 +114,10 @@ export function deleteImport(importID: string): Promise<ImportSnapshot> {
 
 export function getImport(importID: string): Promise<ImportSnapshot> {
   return apiFetch(`/api/v1/imports/${importID}`, { method: "GET" });
+}
+
+export function cleanupExpiredImports(): Promise<{ deleted_count: number }> {
+  return apiFetch("/api/v1/imports/cleanup", { method: "POST" });
 }
 
 function toManifestFile(file: ScannedFile): ManifestFile[] {

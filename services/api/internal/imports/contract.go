@@ -330,3 +330,7 @@ type Snapshot struct {
 	Files             []FilePlan   `json:"files"`
 	Job               *JobSnapshot `json:"job,omitempty"`
 }
+
+type CleanupResult struct {
+	DeletedCount int `json:"deleted_count"`
+}

@@ -21,6 +21,7 @@ type ImportService interface {
 	GetImport(context.Context, string, string) (importdomain.Snapshot, error)
 	CompleteImport(context.Context, string, string) (importdomain.Snapshot, error)
 	DeleteImport(context.Context, string, string) (importdomain.Snapshot, error)
+	CleanupImports(context.Context, string) (importdomain.CleanupResult, error)
 }
 
 type ImportHandler struct {
@@ -54,6 +55,15 @@ func (handler *ImportHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	relative := strings.TrimPrefix(r.URL.Path, importsBasePath+"/")
 	segments := strings.Split(strings.Trim(relative, "/"), "/")
+	if len(segments) == 1 && segments[0] == "cleanup" {
+		if r.Method != http.MethodPost {
+			w.Header().Set("Allow", http.MethodPost)
+			writeImportError(w, http.StatusMethodNotAllowed, "method_not_allowed")
+			return
+		}
+		handler.cleanup(w, r, accessToken)
+		return
+	}
 	if len(segments) == 0 || !importdomain.IsUUID(segments[0]) {
 		writeImportError(w, http.StatusNotFound, "not_found")
 		return
@@ -90,6 +100,15 @@ func (handler *ImportHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeImportError(w, http.StatusNotFound, "not_found")
+}
+
+func (handler *ImportHandler) cleanup(w http.ResponseWriter, r *http.Request, accessToken string) {
+	result, err := handler.service.CleanupImports(r.Context(), accessToken)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeImportJSON(w, http.StatusOK, result)
 }
 
 func (handler *ImportHandler) appendManifestPage(w http.ResponseWriter, r *http.Request, accessToken, importID string) {

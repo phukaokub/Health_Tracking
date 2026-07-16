@@ -4,7 +4,7 @@
 - Date: 2026-07-16
 - Decision owners: product owner and engineering
 - Related milestone/change/PR: Step 3 work package 3F; DEC-007
-- Supersedes / superseded by: none
+- Supersedes / superseded by: write-RPC privilege details superseded by ADR 0004
 
 ## Context
 

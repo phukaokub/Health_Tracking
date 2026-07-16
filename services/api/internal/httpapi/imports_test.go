@@ -42,6 +42,10 @@ func (service *fakeImportService) DeleteImport(_ context.Context, token, _ strin
 	service.method, service.accessToken = "delete", token
 	return importdomain.Snapshot{ID: validImportID, State: importdomain.ImportStateDeleted}, service.err
 }
+func (service *fakeImportService) CleanupImports(_ context.Context, token string) (importdomain.CleanupResult, error) {
+	service.method, service.accessToken = "cleanup", token
+	return importdomain.CleanupResult{DeletedCount: 1}, service.err
+}
 
 func authenticatedImportRequest(method, target, body string) *http.Request {
 	request := httptest.NewRequest(method, target, strings.NewReader(body))
@@ -112,6 +116,7 @@ func TestImportHandlerRoutesStatusCompletionAndDeletion(t *testing.T) {
 		{http.MethodGet, importsBasePath + "/" + validImportID, "get"},
 		{http.MethodPost, importsBasePath + "/" + validImportID + "/complete", "complete"},
 		{http.MethodDelete, importsBasePath + "/" + validImportID, "delete"},
+		{http.MethodPost, importsBasePath + "/cleanup", "cleanup"},
 	} {
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, authenticatedImportRequest(test.method, test.path, ""))
