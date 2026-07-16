@@ -15,8 +15,16 @@ export type ScannedFile = {
   duplicateOfClientFileId: string | null;
   inclusionState: "planned" | "skipped_duplicate" | "excluded";
   logicalBytes: number;
+  parts: ScannedPart[];
   sourceFamily: "huawei-json" | "legacy-xls" | "excluded";
   sourceReferenceHash: string | null;
+};
+
+export type ScannedPart = {
+  byteLength: number;
+  byteOffset: number;
+  contentSha256: string;
+  partIndex: number;
 };
 
 export type ScanWarning = {

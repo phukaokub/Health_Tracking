@@ -5,10 +5,10 @@
 - Change ID: STEP-003
 - Milestone/work packages: Step 3 / 3A-3I
 - Owner: repository maintainer with Codex implementation support
-- Status: in progress; local foundation (3A-3C) underway
+- Status: in progress; 3A-3F merged, local 3E/3G upload slice under verification
 - Baseline commit: `0b3ad3df618505eab31b40663e794f915d679227` (Step 2 merge)
-- Branch: `codex/step-3-import-foundation`
-- Related records: [`../IMPLEMENTATION_STEPS.md`](../IMPLEMENTATION_STEPS.md), [`../DELIVERY_TRACKER.md`](../DELIVERY_TRACKER.md), DEC-001, DEC-002, DEC-007
+- Branch: `codex/step-3-tus-upload`
+- Related records: [`../IMPLEMENTATION_STEPS.md`](../IMPLEMENTATION_STEPS.md), [`../DELIVERY_TRACKER.md`](../DELIVERY_TRACKER.md), ADR 0001, ADR 0002, ADR 0003, DEC-001, DEC-002, DEC-007
 - Target environments: local, CI, PR preview, staging
 - Explicitly excluded environment: production
 - Last updated: 2026-07-16
@@ -91,7 +91,7 @@ Every failure maps to a stable code, retryability flag, safe user action, and su
 | DEC-007 | Go foreground/background Supabase access model | Engineering owner | 3F / Step 4 | Accepted for foreground in ADR 0002: user JWT + publishable key; decide dedicated worker credential before Step 4 |
 | LIB-001 | ZIP streaming library | Engineering owner | 3D | Accepted: `fflate` 0.8.3 (MIT) powers bounded local ZIP review; direct upload remains gated |
 | LIB-002 | Incremental SHA-256 library | Engineering owner | 3D | Accepted: `hash-wasm` 4.12.0 (MIT) in the Worker; avoids whole-file buffering |
-| LIB-003 | TUS client | Engineering owner | 3E | `tus-js-client`, pinned and lockfile-reviewed, following Supabase's documented endpoint/chunk rules |
+| LIB-003 | TUS client | Engineering owner | 3E | Accepted in ADR 0003: `tus-js-client` 4.3.1 (MIT), pinned and lockfile-reviewed, with Supabase's documented endpoint/chunk rules |
 | LIMIT-001 | Confirm hosted Supabase Storage/project quotas and configured bucket limit | Billing/release owner | 3I | Do not infer current plan limits from old notes; record dashboard/docs evidence |
 
 ### DEC-007 options to resolve
@@ -262,13 +262,13 @@ For each TUS/ZIP/hash package, record version, lockfile, license, maintenance/se
 
 | ID | Deliverable | Depends on | Suggested merge boundary | Status |
 | --- | --- | --- | --- | --- |
-| 3A | OpenAPI/domain contract, state machine, limits, idempotency, decision documentation | Step 2 | Contract/tests/docs only | In progress: metadata-only Go contract and state/limit tests added |
-| 3B | Database migration, constraints/indexes/grants/RLS; repository adapter in 3F | 3A | Schema + tests, feature unused | In progress: local migration, RLS, grants, and pgTAP tests added |
-| 3C | Private bucket configuration and Storage policies/tests | 3A, 3B | Storage boundary, feature unused | In progress: private bucket and owner path policies added; direct upload probes follow in 3E |
-| 3D | Worker scanner/classifier/hash and ZIP/library spikes | 3A, LIB-001/002 | Local manifest UI behind disabled entry | In progress: directory/ZIP Worker review, incremental hashes, path/size/ratio limits, exact duplicate grouping, and cancel UX; browser interaction/changing-file evidence remains |
-| 3E | TUS uploader/reconcile/pause/resume/retry | 3C, 3D, LIB-003 | Synthetic local upload behind feature gate | Planned |
-| 3F | Go create/page/complete/status/delete endpoints and idempotent job boundary | 3A-3C | API integrated, UI still gated | In progress: bounded create/page/status/complete/delete, invoker RPCs, Storage-first deletion, and local API/RLS tests implemented; direct authenticated integration probe remains |
-| 3G | Import wizard UX/accessibility/recovery | 3D-3F | Enable locally after E2E | Planned |
+| 3A | OpenAPI/domain contract, state machine, limits, idempotency, decision documentation | Step 2 | Contract/tests/docs only | Complete in PR #3 and extended by PR #7 |
+| 3B | Database migration, constraints/indexes/grants/RLS; repository adapter in 3F | 3A | Schema + tests, feature unused | Complete in PRs #3 and #7; 38 pgTAP checks cover invoker RPCs and cross-owner denial |
+| 3C | Private bucket configuration and Storage policies/tests | 3A, 3B | Storage boundary, feature unused | Complete in PRs #3 and #7; corrected owner-path policy passed a real local TUS probe |
+| 3D | Worker scanner/classifier/hash and ZIP/library spikes | 3A, LIB-001/002 | Local manifest UI behind disabled entry | Complete for review in PRs #4-#6; ZIP entry upload and browser interaction evidence remain in 3E/3G |
+| 3E | TUS uploader/reconcile/pause/resume/retry | 3C, 3D, LIB-003 | Synthetic local upload behind feature gate | In progress: pinned TUS client, deterministic resume fingerprint, 6 MiB chunks, 20 MiB checksummed objects, pause/resume/cancel, and real generated-byte local probe pass; ZIP source adapter remains |
+| 3F | Go create/page/complete/status/delete endpoints and idempotent job boundary | 3A-3C | API integrated, UI still gated | Complete in PR #7 with 1 MiB API cap, paged manifests, user-JWT/RLS adapter, idempotent job creation, and Storage-first delete |
+| 3G | Import wizard UX/accessibility/recovery | 3D-3F | Enable locally after E2E | In progress: directory review/upload/progress/pause/resume/retry/cancel states implemented behind `NEXT_PUBLIC_IMPORT_UPLOAD_ENABLED`; browser walkthrough remains |
 | 3H | Cancel/delete/abandoned cleanup and reconciliation | 3B, 3C, 3F | Required before hosted enablement | Planned |
 | 3I | Staging Supabase/Vercel config and hosted synthetic E2E | DEC-001/002, 3A-3H | Milestone completion gate | Planned |
 

@@ -2,7 +2,9 @@ import { createSHA256 } from "hash-wasm";
 import { Unzip, UnzipInflate } from "fflate";
 
 import { classifySourcePath, isSafeZipEntry, MAX_DIRECTORY_ENTRIES, MAX_UNCOMPRESSED_BYTES, normalizeRelativePath } from "./scan-policy";
+import { uuidFromSHA256 } from "./identifiers";
 import type { DirectoryScanResult, ScannedFile, ScanWarning } from "./scanner.types";
+import { StreamingHashes } from "./stream-hashes";
 
 export class ScanCancelledError extends Error {
   constructor() {
@@ -17,7 +19,7 @@ export function isScanCancelledError(error: unknown): boolean {
 // scanZipArchive streams compressed archive bytes and only retains bounded
 // metadata/checksums. It never returns a name or path from the archive.
 export async function scanZipArchive(archive: Blob, isCancelled: () => boolean): Promise<DirectoryScanResult> {
-  const contentHasher = await createSHA256();
+  const hashes = await StreamingHashes.create();
   const referenceHasher = await createSHA256();
   const files: ScannedFile[] = [];
   const warnings: ScanWarning[] = [];
@@ -57,6 +59,7 @@ export async function scanZipArchive(archive: Blob, isCancelled: () => boolean):
         duplicateOfClientFileId: null,
         inclusionState: "excluded",
         logicalBytes: entry.originalSize,
+        parts: [],
         sourceFamily: classification.sourceFamily,
         sourceReferenceHash: null,
       });
@@ -66,7 +69,7 @@ export async function scanZipArchive(archive: Blob, isCancelled: () => boolean):
     activeEntry = true;
     referenceHasher.init().update(relativePath);
     const sourceReferenceHash = referenceHasher.digest("hex");
-    contentHasher.init();
+    hashes.reset();
     let receivedBytes = 0;
     entry.ondata = (error, chunk, final) => {
       if (error) {
@@ -88,19 +91,21 @@ export async function scanZipArchive(archive: Blob, isCancelled: () => boolean):
           activeEntry = false;
           return;
         }
-        contentHasher.update(chunk);
+        hashes.update(chunk);
       }
       if (final) {
         if (receivedBytes !== entry.originalSize) {
           deferredError = new Error("unsafe_zip_entry");
         } else {
+          const partResult = hashes.digest();
           files.push({
-            clientFileId: crypto.randomUUID(),
+            clientFileId: uuidFromSHA256(sourceReferenceHash),
             contentKind: classification.contentKind,
-            contentSha256: contentHasher.digest("hex"),
+            contentSha256: partResult.contentSha256,
             duplicateOfClientFileId: null,
             inclusionState: "planned",
             logicalBytes: entry.originalSize!,
+            parts: partResult.parts,
             sourceFamily: classification.sourceFamily,
             sourceReferenceHash,
           });

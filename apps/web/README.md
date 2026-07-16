@@ -25,4 +25,6 @@ npm run test:e2e
 
 Open `http://localhost:3000`. The web app expects the Go API at the configured `NEXT_PUBLIC_API_BASE_URL` and local Supabase at `NEXT_PUBLIC_SUPABASE_URL`.
 
+Direct import upload is fail-closed. Set `NEXT_PUBLIC_IMPORT_UPLOAD_ENABLED=true` only for an approved local or synthetic staging verification window; keep it `false` until Step 3 cleanup and cross-owner gates are complete.
+
 The production build intentionally succeeds when Supabase runtime configuration is absent so generic CI can validate source. An auth-enabled deployment is not accepted until runtime Auth flows are verified with the target environment variables and provider configuration.

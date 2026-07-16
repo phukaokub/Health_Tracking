@@ -48,8 +48,11 @@ The prefix `NEXT_PUBLIC_` means the value is browser-visible. A variable with th
 | `NEXT_PUBLIC_API_BASE_URL` | Public | Browser-visible Go API origin | `http://localhost:8080` | Non-production API deployment | Production API domain | Local `.env.local`; Vercel web project |
 | `NEXT_PUBLIC_SUPABASE_URL` | Public | Supabase project URL | Local API URL | Staging/preview project URL | Production project URL | Local `.env.local`; Vercel web project |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public | Supabase browser API key used with user JWT/RLS | Local publishable key | Staging/preview publishable key | Production publishable key | Local `.env.local`; Vercel web project |
+| `NEXT_PUBLIC_IMPORT_UPLOAD_ENABLED` | Public | Fail-closed Step 3 direct-upload release gate | `true` only during explicit local verification | `true` only during approved synthetic staging verification | `false` until production release approval | Local `.env.local`; Vercel web project |
 
 The web build is intentionally safe when Supabase variables are absent so generic CI can prerender the application. Auth runtime verification is still required in every auth-enabled deployed environment.
+
+`NEXT_PUBLIC_IMPORT_UPLOAD_ENABLED` is a release gate, not an authorization control. Database RLS and private Storage policies remain authoritative. Keep the flag false when cleanup, cross-owner, or target-environment verification is incomplete.
 
 `NEXT_PUBLIC_APP_URL` is currently an explicit value. Before arbitrary Vercel branch previews support Auth, either set a branch-specific Preview value or implement and test trusted forwarded-host/Vercel URL handling. Do not allow a preview login to redirect silently to localhost or production.
 
