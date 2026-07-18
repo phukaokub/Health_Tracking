@@ -1,6 +1,6 @@
 # Delivery tracker
 
-Last reviewed: 2026-07-17
+Last reviewed: 2026-07-19
 
 This is the living status document. Update it at each meaningful handoff, accepted scope change, new blocker, pull-request transition, and release. Product intent belongs in `PROJECT_PLAN.md`; detailed change design belongs in a change plan.
 
@@ -8,8 +8,8 @@ This is the living status document. Update it at each meaningful handoff, accept
 
 - Release target: private non-clinical V1.
 - Current gate: Step 3 implementation PRs [#3](https://github.com/phukaokub/Health_Tracking/pull/3) through [#9](https://github.com/phukaokub/Health_Tracking/pull/9) are merged on `main` at `b79d63e`; local browser acceptance is green and hosted staging evidence remains before the milestone is done.
-- Current branch: `main`, at the hosted-audit documentation merge PR #12 (`22f12ed`).
-- Active milestone: close the Step 3 hosted-environment gate. Supabase project `Health_Tracking` (`gdccossstmochzfgjqxz`, `ap-southeast-1`) is an active candidate but has no repository migrations and has pre-existing Security Advisor warnings; no Vercel projects exist. User confirmation and mutation approval are required before adopting or changing it.
+- Current branch: `codex/step-3-hosted-staging`, hosted-staging evidence PR pending.
+- Active milestone: close the Step 3 hosted-environment gate. User approved Supabase project `Health_Tracking` (`gdccossstmochzfgjqxz`, `ap-southeast-1`) as shared synthetic staging and approved preview web/API configuration.
 - Active Step 3 plan: [`plans/0003-import-manifest-upload.md`](plans/0003-import-manifest-upload.md).
 - The Go foreground access decision is accepted in [`decisions/0002-foreground-supabase-access.md`](decisions/0002-foreground-supabase-access.md). Preview isolation is required before hosted verification (3I).
 - Production status: not provisioned and not approved for user data.
@@ -21,7 +21,7 @@ This is the living status document. Update it at each meaningful handoff, accept
 | 0 | Repository and developer baseline | Done on `main` | Repository structure and local commands established |
 | 1 | Local Next.js/Go vertical slice | Done on `main` | Web/API baseline merged in PR #1 |
 | 2 | Supabase Auth, profiles, SSR sessions, JWT verification, and RLS | Done | Local email via Mailpit and Google login verified; PR #2 merged after Documentation, Web, and API checks passed |
-| 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | Acceptance pending | PRs #3-#9 merged and local real-browser acceptance is green; dedicated hosted staging plus quota/outage smoke remains |
+| 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | Hosted Auth blocked | Migrations, RLS hardening, preview deployments, health, and unauthenticated fail-closed checks are green; synthetic Auth signup is currently provider-rate-limited (HTTP 429), so authenticated upload/cross-user/quota smoke remains pending |
 | 4 | Streaming Huawei JSON parsing, normalization, provenance, and dedupe | Proposed plan | Review [`plans/0004-huawei-json-normalization.md`](plans/0004-huawei-json-normalization.md), source coverage, and worker access ADR before implementation |
 | 5 | Legacy XLS allowlisted backfill and precedence | Planned | Parser library spike and sanitized fixture acceptance |
 | 6 | First summary, goals, reports, and dashboard | Planned | Normalized data contracts and UX acceptance |
@@ -47,7 +47,7 @@ or a documented independent compatibility, release, or review boundary.
 | 3F | Add Go manifest/completion endpoints, user scope, validation, idempotent job creation, and structured redacted logs | 3A, 3B | Complete in merged PR #7 (`674f364`): bounded create/page/status/complete/delete, user-JWT/RLS adapter, idempotent job, and redacted two-user local probe |
 | 3G | Build import wizard states: instructions, review, upload, recovery, completion, warning, cancel, and cleanup | 3D, 3E, 3F | Complete in PRs #8/#9; 390x844 Chromium flow verifies keyboard focus order, ARIA progress state, interruption recovery, queue, and cancel/delete messaging |
 | 3H | Add abandoned/failed upload cleanup and import deletion path | 3B, 3C, 3F | Complete in PR #9 for caller-owned reconciliation and deletion; system-wide scheduling is deferred to the Step 4 worker decision |
-| 3I | Provision or document staging integration and run browser-to-Storage-to-job smoke | INT-001/002, 3A-3H | Candidate project discovered but not accepted: confirm purpose/ownership, remediate provider drift, apply migrations, provision web/API targets, then run synthetic hosted E2E and quota/outage checks |
+| 3I | Provision or document staging integration and run browser-to-Storage-to-job smoke | INT-001/002, 3A-3H | Shared staging approved; canonical migrations applied, `rls_auto_enable()` public execution revoked, preview web/API deployed, health and unauthenticated denial checks green. Auth signup is rate-limited (HTTP 429), blocking authenticated upload/RLS/quota smoke until the provider window clears |
 
 ### Step 3 non-goals
 
@@ -89,7 +89,7 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | R-006 | CI proves documentation, web build, Go baseline, local migration/RLS tests, and generated browser import E2E; repository-wide dependency/security scanning is not required | Medium/high before launch | Keep the browser gate required and add dependency/secret scanning before Step 9 | Reduced; open |
 | R-007 | Application rollback is incompatible with a database migration | Medium/high | Expand/migrate/contract, staging compatibility tests, forward-repair runbook | Continuous |
 | R-008 | Next.js 16.2.10 currently brings a PostCSS advisory without a non-breaking stable npm-audit resolution | Medium/medium | Track upstream fixed release, avoid untrusted runtime CSS stringification, and verify upgrade through Step 8 dependency review; do not apply npm's breaking downgrade suggestion | Open |
-| R-009 | Candidate staging project contains untracked provider-side database code | Medium/high | Do not apply application migrations until ownership is confirmed; review and remove or restrict `public.rls_auto_enable()`, rerun Security Advisor, and establish migration baseline | Open; two external warnings |
+| R-009 | Hosted Auth signup abuse protection rate-limits synthetic test creation | Medium/high | Retry after provider cooldown or configure an approved staging Auth test path; never weaken Auth or use service-role credentials | Open; HTTP 429 during hosted smoke |
 
 ## Evidence log
 
@@ -115,6 +115,10 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | 2026-07-17 | Step 3 browser CI gate | PR #11 head `f2c0016`: existing schema lint/46 pgTAP checks followed by Chromium Auth/import pause-resume and cancel-cleanup scenarios on Linux | Green in `Supabase schema and RLS checks` (4m40s); final PR rerun/merge pending |
 | 2026-07-17 | Step 3 browser acceptance merge | PR #11 passed Documentation, Web, API, and extended Supabase/browser checks | Squash-merged as `5e58993`; local and CI browser gates are complete |
 | 2026-07-17 | Hosted provider audit | Supabase `Health_Tracking` is active/healthy in `ap-southeast-1`; migration list is empty; Security Advisor reports anon/authenticated execution of `public.rls_auto_enable()`; Vercel team has zero projects | Candidate only; no keys read and no provider mutation performed |
+| 2026-07-19 | Hosted staging setup | Canonical repository migrations applied and migration history aligned; public execution revoked for `rls_auto_enable()` and profile trigger helper; all application tables report RLS enabled; Security Advisor pre-existing warning cleared | Green; seven intentional authenticated-only definer RPC notices remain |
+| 2026-07-19 | Hosted preview deployment | Vercel projects `health-tracking-api-staging` and `health-tracking-web-staging` configured with preview-only Supabase/API values; API health 200 and web 200; unauthenticated `/me`, `/imports`, and malformed import route return 401 | Green; no production project or user data |
+| 2026-07-19 | Hosted synthetic smoke attempt | Two synthetic signup attempts used reserved/non-personal domains; provider rejected the first as invalid (400) and then rate-limited requests (429). Bounded unauthenticated API checks remain fail-closed; cleanup query reports zero expired candidates | Authenticated upload, cross-user denial, quota, and authenticated cleanup evidence blocked by Auth rate limit; no tokens or payloads recorded |
+| 2026-07-19 | Hosted staging PR | PR #14 opened from `codex/step-3-hosted-staging` with migration and non-sensitive evidence; Documentation, Web, and API checks green | Supabase schema/RLS check pending; do not merge until required CI completes |
 
 Do not record credential values, email addresses, raw health content, or private incident details in this log.
 
