@@ -64,6 +64,7 @@ The web build is intentionally safe when Supabase variables are absent so generi
 | Name | Class | Purpose | Local default/reference | Preview/staging | Production | Owner/store |
 | --- | --- | --- | --- | --- | --- | --- |
 | `PORT` | Internal | HTTP listen port | `8080` | Platform assigned | Platform assigned | Shell/runtime platform |
+| `HOST` | Internal | HTTP bind address | `127.0.0.1` | Platform/container bind address, normally `0.0.0.0` | Platform/container bind address, normally `0.0.0.0` | Shell/runtime platform |
 | `WEB_ORIGIN` | Internal | Exact browser origin permitted by API CORS | `http://localhost:3000` | Exact staging/preview web origin | Exact production web origin | Shell; Vercel API project |
 | `SUPABASE_URL` | Internal | Base Supabase URL and JWKS source | `http://127.0.0.1:54321` | Staging/preview URL | Production URL | Shell; Vercel API project |
 | `SUPABASE_PUBLISHABLE_KEY` | Public identifier/internal config | Go foreground Data/Storage API calls with the verified user JWT | Local publishable key | Staging/preview publishable key | Production publishable key | Shell; Vercel API project |
