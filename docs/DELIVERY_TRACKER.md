@@ -118,6 +118,7 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | 2026-07-19 | Hosted staging setup | Canonical repository migrations applied and migration history aligned; public execution revoked for `rls_auto_enable()` and profile trigger helper; all application tables report RLS enabled; Security Advisor pre-existing warning cleared | Green; seven intentional authenticated-only definer RPC notices remain |
 | 2026-07-19 | Hosted preview deployment | Vercel projects `health-tracking-api-staging` and `health-tracking-web-staging` configured with preview-only Supabase/API values; API health 200 and web 200; unauthenticated `/me`, `/imports`, and malformed import route return 401 | Green; no production project or user data |
 | 2026-07-19 | Hosted synthetic smoke attempt | Two synthetic signup attempts used reserved/non-personal domains; provider rejected the first as invalid (400) and then rate-limited requests (429). Bounded unauthenticated API checks remain fail-closed; cleanup query reports zero expired candidates | Authenticated upload, cross-user denial, quota, and authenticated cleanup evidence blocked by Auth rate limit; no tokens or payloads recorded |
+| 2026-07-19 | Hosted staging PR | PR #14 opened from `codex/step-3-hosted-staging` with migration and non-sensitive evidence; Documentation, Web, and API checks green | Supabase schema/RLS check pending; do not merge until required CI completes |
 
 Do not record credential values, email addresses, raw health content, or private incident details in this log.
 
