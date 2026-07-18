@@ -4,7 +4,7 @@ Health Tracking is developed in verified milestones with strict privacy and envi
 
 ## Before changing code
 
-1. Read the [documentation map](docs/README.md) and [engineering workflow](docs/ENGINEERING_WORKFLOW.md).
+1. Read [AGENTS.md](AGENTS.md), the [documentation map](docs/README.md), and [engineering workflow](docs/ENGINEERING_WORKFLOW.md).
 2. Check the current milestone, blockers, and decisions in the [delivery tracker](docs/DELIVERY_TRACKER.md).
 3. For a non-trivial change, copy the [change-plan template](docs/templates/CHANGE_PLAN.md) and complete its applicable sections.
 4. Confirm no personal Huawei export, real health data, credentials, JWTs, user email addresses, or private incident evidence will enter Git, fixtures, logs, screenshots, or pull-request content.

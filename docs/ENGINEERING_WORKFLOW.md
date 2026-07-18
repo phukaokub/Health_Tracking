@@ -52,6 +52,10 @@ Unknown implementation details can remain, but an unknown that materially change
 2. Work packages in [`DELIVERY_TRACKER.md`](DELIVERY_TRACKER.md) describe reviewable vertical slices and dependencies.
 3. A change plan describes exact tasks, contracts, tests, environment changes, integration work, and rollback for one branch or pull request.
 
+Default to one accepted milestone slice, one branch, and one pull request. Split a
+slice only when the user requests it or when the change plan records an
+independent compatibility, release, or review boundary.
+
 Prefer a work package that can be merged and verified independently. If a package cannot be released safely on its own, identify the compatibility layer or feature flag that keeps `main` releasable.
 
 ### Adjust an accepted plan

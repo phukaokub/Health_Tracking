@@ -8,7 +8,7 @@ This is the living status document. Update it at each meaningful handoff, accept
 
 - Release target: private non-clinical V1.
 - Current gate: Step 3 implementation PRs [#3](https://github.com/phukaokub/Health_Tracking/pull/3) through [#9](https://github.com/phukaokub/Health_Tracking/pull/9) are merged on `main` at `b79d63e`; local browser acceptance is green and hosted staging evidence remains before the milestone is done.
-- Current branch: `codex/step-3-hosted-audit`, based on merged browser-acceptance PR #11 (`5e58993`).
+- Current branch: `main`, at the hosted-audit documentation merge PR #12 (`22f12ed`).
 - Active milestone: close the Step 3 hosted-environment gate. Supabase project `Health_Tracking` (`gdccossstmochzfgjqxz`, `ap-southeast-1`) is an active candidate but has no repository migrations and has pre-existing Security Advisor warnings; no Vercel projects exist. User confirmation and mutation approval are required before adopting or changing it.
 - Active Step 3 plan: [`plans/0003-import-manifest-upload.md`](plans/0003-import-manifest-upload.md).
 - The Go foreground access decision is accepted in [`decisions/0002-foreground-supabase-access.md`](decisions/0002-foreground-supabase-access.md). Preview isolation is required before hosted verification (3I).
@@ -33,7 +33,9 @@ This is the living status document. Update it at each meaningful handoff, accept
 
 ## Step 3 work-package baseline
 
-This baseline is implemented through the active change plan. Work packages may be split into separate pull requests if each keeps `main` safe and the dependencies remain explicit.
+This baseline is implemented through the active change plan. The default is one
+accepted milestone slice per pull request; a split requires either user request
+or a documented independent compatibility, release, or review boundary.
 
 | ID | Work package | Dependencies | Completion evidence |
 | --- | --- | --- | --- |
