@@ -49,6 +49,7 @@ type Result struct {
 	Samples       []Sample       `json:"samples"`
 	SleepSessions []SleepSession `json:"sleep_sessions"`
 	Activities    []Activity     `json:"activities"`
+	Workouts      []Workout      `json:"workouts"`
 	Warnings      []Warning      `json:"warnings"`
 }
 type SleepSession struct {
@@ -75,16 +76,30 @@ type Activity struct {
 	DedupeKey        string    `json:"dedupe_key"`
 	ParserVersion    string    `json:"parser_version"`
 }
+type Workout struct {
+	SourceRecordHash   string    `json:"source_record_hash"`
+	WorkoutType        string    `json:"workout_type"`
+	StartedAt          time.Time `json:"started_at"`
+	EndedAt            time.Time `json:"ended_at"`
+	DurationSeconds    int64     `json:"duration_seconds"`
+	DistanceMetres     string    `json:"distance_metres,omitempty"`
+	EnergyKilocalories string    `json:"energy_kilocalories,omitempty"`
+	DedupeKey          string    `json:"dedupe_key"`
+	ParserVersion      string    `json:"parser_version"`
+}
 
 type sourceRecord struct {
-	Type         string             `json:"type"`
-	RecordID     string             `json:"record_id"`
-	StartedAt    string             `json:"started_at"`
-	EndedAt      string             `json:"ended_at"`
-	Unit         string             `json:"unit"`
-	Value        json.RawMessage    `json:"value"`
-	Stages       []sourceSleepStage `json:"stages"`
-	ActivityType string             `json:"activity_type"`
+	Type               string             `json:"type"`
+	RecordID           string             `json:"record_id"`
+	StartedAt          string             `json:"started_at"`
+	EndedAt            string             `json:"ended_at"`
+	Unit               string             `json:"unit"`
+	Value              json.RawMessage    `json:"value"`
+	Stages             []sourceSleepStage `json:"stages"`
+	ActivityType       string             `json:"activity_type"`
+	WorkoutType        string             `json:"workout_type"`
+	DistanceMetres     json.RawMessage    `json:"distance_metres"`
+	EnergyKilocalories json.RawMessage    `json:"energy_kilocalories"`
 }
 type sourceSleepStage struct {
 	Code      string `json:"code"`
@@ -163,6 +178,14 @@ func ParseHuaweiJSON(reader io.Reader) (Result, error) {
 				}
 				continue
 			}
+			if record.Type == "workout_summary" {
+				workout, err := normalizeWorkout(record)
+				if err != nil {
+					return Result{}, err
+				}
+				result.Workouts = append(result.Workouts, *workout)
+				continue
+			}
 			sample, warning, err := normalizeRecord(record)
 			if err != nil {
 				return Result{}, err
@@ -185,6 +208,34 @@ func ParseHuaweiJSON(reader io.Reader) (Result, error) {
 		return Result{}, &SafeError{Code: "source_schema_unsupported"}
 	}
 	return result, nil
+}
+
+func normalizeWorkout(record sourceRecord) (*Workout, error) {
+	if record.RecordID == "" || record.WorkoutType == "" {
+		return nil, &SafeError{Code: "source_schema_unsupported"}
+	}
+	s, e1 := time.Parse(time.RFC3339, record.StartedAt)
+	e, e2 := time.Parse(time.RFC3339, record.EndedAt)
+	if e1 != nil || e2 != nil || !e.After(s) {
+		return nil, &SafeError{Code: "timestamp_invalid"}
+	}
+	h := hash(record.RecordID)
+	workout := &Workout{SourceRecordHash: h, WorkoutType: record.WorkoutType, StartedAt: s.UTC(), EndedAt: e.UTC(), DurationSeconds: int64(e.Sub(s).Seconds()), ParserVersion: ParserVersion}
+	for _, value := range []struct {
+		raw    json.RawMessage
+		target *string
+	}{{record.DistanceMetres, &workout.DistanceMetres}, {record.EnergyKilocalories, &workout.EnergyKilocalories}} {
+		if len(value.raw) == 0 {
+			continue
+		}
+		parsed, err := strconv.ParseFloat(strings.TrimSpace(string(value.raw)), 64)
+		if err != nil || parsed < 0 {
+			return nil, &SafeError{Code: "metric_mapping_unknown"}
+		}
+		*value.target = strconv.FormatFloat(parsed, 'f', -1, 64)
+	}
+	workout.DedupeKey = hash(strings.Join([]string{"v1", SourceFamily, "workout", h, record.WorkoutType, workout.StartedAt.Format(time.RFC3339Nano), workout.EndedAt.Format(time.RFC3339Nano), workout.DistanceMetres, workout.EnergyKilocalories}, "|"))
+	return workout, nil
 }
 
 func normalizeActivity(record sourceRecord) (*Activity, *Warning, error) {
