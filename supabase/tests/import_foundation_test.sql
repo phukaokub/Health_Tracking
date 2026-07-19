@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(46);
+SELECT plan(53);
 
 SELECT ok(to_regclass('public.import_runs') is not null, 'import_runs exists');
 SELECT ok(to_regclass('public.import_manifest_pages') is not null, 'import_manifest_pages exists');
@@ -7,6 +7,29 @@ SELECT ok(to_regclass('public.import_files') is not null, 'import_files exists')
 SELECT ok(to_regclass('public.import_file_parts') is not null, 'import_file_parts exists');
 SELECT ok(to_regclass('public.import_jobs') is not null, 'import_jobs exists');
 SELECT ok(to_regclass('public.import_errors') is not null, 'import_errors exists');
+SELECT ok(to_regclass('public.health_samples') is not null, 'health_samples exists');
+SELECT ok(to_regclass('public.normalization_provenance') is not null, 'normalization_provenance exists');
+
+SELECT is(
+  (SELECT count(*) FROM pg_class WHERE oid IN (
+    'public.health_samples'::regclass,
+    'public.normalization_provenance'::regclass
+  ) AND relrowsecurity),
+  2::bigint,
+  'normalization tables have RLS enabled'
+);
+SELECT ok(
+  exists (select 1 from pg_constraint where conname = 'health_samples_owner_dedupe_key'),
+  'health samples deduplicate per owner with a stable key'
+);
+SELECT is(
+  (select count(*) from information_schema.role_table_grants
+   where grantee = 'authenticated' and table_schema = 'public'
+     and table_name in ('health_samples', 'normalization_provenance')
+     and privilege_type in ('INSERT', 'UPDATE', 'DELETE')),
+  0::bigint,
+  'authenticated users have no direct normalization writes'
+);
 
 SELECT is(
   (SELECT count(*) FROM pg_class WHERE oid IN (
@@ -160,6 +183,31 @@ VALUES (
   'directory'
 );
 
+INSERT INTO public.import_files (
+  id, import_id, user_id, client_file_id, source_reference_hash, source_family,
+  content_kind, inclusion_state, logical_bytes, content_sha256
+) VALUES (
+  '30000000-0000-4000-8000-000000000031',
+  '10000000-0000-4000-8000-000000000031',
+  '00000000-0000-4000-8000-000000000031',
+  '40000000-0000-4000-8000-000000000031',
+  'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  'synthetic-json', 'application/json', 'verified', 1,
+  'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+);
+INSERT INTO public.health_samples (
+  user_id, import_id, import_file_id, dedupe_key, source_family, source_type,
+  source_record_hash, started_at, ended_at, unit, value, parser_version
+) VALUES (
+  '00000000-0000-4000-8000-000000000031',
+  '10000000-0000-4000-8000-000000000031',
+  '30000000-0000-4000-8000-000000000031',
+  'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+  'huawei_health_json', 'steps',
+  'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+  '2026-01-02T00:00:00Z', '2026-01-02T00:01:00Z', 'count', 1, 'huawei-json-v1'
+);
+
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000031', true);
 
@@ -167,6 +215,11 @@ SELECT is(
   (SELECT count(*) FROM public.import_runs WHERE id = '10000000-0000-4000-8000-000000000031'),
   1::bigint,
   'owner can create and read an import run'
+);
+SELECT is(
+  (SELECT count(*) FROM public.health_samples WHERE import_id = '10000000-0000-4000-8000-000000000031'),
+  1::bigint,
+  'owner can read normalized samples'
 );
 SELECT throws_ok(
   $sql$delete from public.import_runs where id = '10000000-0000-4000-8000-000000000031'$sql$,
@@ -180,6 +233,11 @@ SELECT is(
   (SELECT count(*) FROM public.import_runs WHERE id = '10000000-0000-4000-8000-000000000031'),
   0::bigint,
   'another authenticated user cannot read the owner import run'
+);
+SELECT is(
+  (SELECT count(*) FROM public.health_samples WHERE import_id = '10000000-0000-4000-8000-000000000031'),
+  0::bigint,
+  'another authenticated user cannot read normalized samples'
 );
 SELECT throws_ok(
   $sql$delete from public.import_runs where id = '10000000-0000-4000-8000-000000000031'$sql$,

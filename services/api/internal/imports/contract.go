@@ -318,17 +318,25 @@ type JobSnapshot struct {
 	JobType string `json:"job_type"`
 }
 
+// NormalizationSnapshot is the owner-visible, privacy-safe Step 4 processing
+// contract. It deliberately exposes counts and stable codes only.
+type NormalizationSnapshot struct {
+	NormalizedRecordCount int      `json:"normalized_record_count"`
+	WarningCodes          []string `json:"warning_codes,omitempty"`
+}
+
 type Snapshot struct {
-	ID                string       `json:"id"`
-	State             ImportState  `json:"state"`
-	ManifestVersion   int          `json:"manifest_version"`
-	SourceKind        SourceKind   `json:"source_kind"`
-	TimezoneCandidate string       `json:"timezone_candidate,omitempty"`
-	TotalFileCount    int          `json:"total_file_count"`
-	TotalLogicalBytes int64        `json:"total_logical_bytes"`
-	CleanupAfter      string       `json:"cleanup_after"`
-	Files             []FilePlan   `json:"files"`
-	Job               *JobSnapshot `json:"job,omitempty"`
+	ID                string                 `json:"id"`
+	State             ImportState            `json:"state"`
+	ManifestVersion   int                    `json:"manifest_version"`
+	SourceKind        SourceKind             `json:"source_kind"`
+	TimezoneCandidate string                 `json:"timezone_candidate,omitempty"`
+	TotalFileCount    int                    `json:"total_file_count"`
+	TotalLogicalBytes int64                  `json:"total_logical_bytes"`
+	CleanupAfter      string                 `json:"cleanup_after"`
+	Files             []FilePlan             `json:"files"`
+	Job               *JobSnapshot           `json:"job,omitempty"`
+	Normalization     *NormalizationSnapshot `json:"normalization,omitempty"`
 }
 
 type CleanupResult struct {

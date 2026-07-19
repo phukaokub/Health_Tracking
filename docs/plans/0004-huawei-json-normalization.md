@@ -5,7 +5,7 @@
 - Change ID: STEP-004
 - Milestone/work packages: Step 4 / 4A-4J
 - Owner: repository maintainer with Codex implementation support
-- Status: proposed; local parser work may begin only after the Step 3 job/Storage contract is accepted, and hosted worker execution remains gated
+- Status: in progress; this first local vertical slice covers sanitized fixtures, a pure streaming parser, canonical scalar-schema foundation, provenance/dedupe, and privacy tests. Hosted worker execution remains gated.
 - Baseline commit: `b79d63ef3cbf85d9584234d7d92802d26d9b2112` (PR #9 merge)
 - Branch: `codex/step-4-plan`
 - Related records: [`../IMPLEMENTATION_STEPS.md`](../IMPLEMENTATION_STEPS.md), [`../DELIVERY_TRACKER.md`](../DELIVERY_TRACKER.md), [`0004-source-coverage-matrix.md`](0004-source-coverage-matrix.md), ADR 0005 (proposed)
