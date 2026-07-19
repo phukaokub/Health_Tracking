@@ -1,9 +1,26 @@
 package imports
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
+
+func TestNormalizationSnapshotDoesNotContainPayloadFields(t *testing.T) {
+	snapshot := Snapshot{Normalization: &NormalizationSnapshot{
+		NormalizedRecordCount: 2,
+		WarningCodes:          []string{"sensitive_record_excluded"},
+	}}
+	encoded, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"payload", "path", "email", "waveform", "latitude", "longitude"} {
+		if strings.Contains(string(encoded), forbidden) {
+			t.Fatalf("unsafe field %q present in API contract: %s", forbidden, encoded)
+		}
+	}
+}
 
 const (
 	testUserID   = "00000000-0000-4000-8000-000000000001"

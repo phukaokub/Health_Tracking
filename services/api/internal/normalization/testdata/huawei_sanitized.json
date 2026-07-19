@@ -1,0 +1,9 @@
+{
+  "export_schema": "synthetic-huawei-v1",
+  "records": [
+    {"type":"heart_rate","record_id":"synthetic-heart-rate-a","started_at":"2026-01-02T03:04:05Z","unit":"bpm","value":72},
+    {"type":"steps","record_id":"synthetic-steps-a","started_at":"2026-01-02T00:00:00Z","ended_at":"2026-01-02T01:00:00Z","unit":"count","value":120},
+    {"type":"ecg","record_id":"synthetic-ecg-a","started_at":"2026-01-02T04:00:00Z","unit":"summary","value":1,"waveform":[1,2],"rri":[3,4]},
+    {"type":"workout_route","record_id":"synthetic-route-a","started_at":"2026-01-02T05:00:00Z","unit":"summary","value":1,"route":[{"lat":0,"lon":0}]}
+  ]
+}
