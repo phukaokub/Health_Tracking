@@ -5,12 +5,12 @@
 - Change ID: STEP-004
 - Milestone/work packages: Step 4 / 4A-4J
 - Owner: repository maintainer with Codex implementation support
-- Status: in progress; this first local vertical slice covers sanitized fixtures, a pure streaming parser, canonical scalar-schema foundation, provenance/dedupe, and privacy tests. Hosted worker execution remains gated.
+- Status: in progress; local parser, scalar/sleep/activity/workout slices are merged. The approved worker lease/checkpoint/retry/cleanup foundation is now being added; hosted execution remains gated.
 - Baseline commit: `b79d63ef3cbf85d9584234d7d92802d26d9b2112` (PR #9 merge)
-- Branch: `codex/step-4-plan`
+- Branch: `codex/step-4-worker-foundation`
 - Related records: [`../IMPLEMENTATION_STEPS.md`](../IMPLEMENTATION_STEPS.md), [`../DELIVERY_TRACKER.md`](../DELIVERY_TRACKER.md), [`0004-source-coverage-matrix.md`](0004-source-coverage-matrix.md), ADR 0005 (proposed)
 - Target environments: local, CI, stable staging; production is explicitly excluded
-- Last updated: 2026-07-17
+- Last updated: 2026-07-19
 
 ## Outcome
 
@@ -96,7 +96,7 @@ A queued, owner-scoped import is parsed incrementally from immutable private Sto
 | Queue/trigger | provider decision | Engineering/release owner | 4F/4H | Existing `import_jobs` is source of truth; Supabase Queue adoption requires a separate measured migration |
 | Worker runtime ceiling | limit | Engineering/release owner | 4F | Target 240-second slice; benchmark at 180 seconds and 192 MiB to preserve headroom |
 | Batch size | limit | Engineering | 4C/4D | Start at 1,000 rows and 4 MiB encoded parameter cap; lower based on staging latency |
-| Raw-part retention | privacy decision | Product/security owner | 4H | Delete after successful parse plus accepted recovery window; exact hours approved before hosted enablement |
+| Raw-part retention | privacy decision | Product/security owner | 4H | **Approved: 24 hours** after terminal worker result; cleanup also requires no active lease |
 
 ## Design and contracts
 
@@ -224,8 +224,8 @@ Threats and controls:
 | 4C | Canonical schema, provenance, checkpoint tables, indexes, grants, RLS | 4B | Clean reset, lint, pgTAP, advisor review | Planned |
 | 4D | Health/sample/sleep/activity/workout/ECG-summary streaming mappings | 4A-4C | Deterministic snapshots and mapping tests | Planned |
 | 4E | Narrow motion-map tokenizer repair and strict revalidation | 4A, 4B | Valid/invalid/truncated/adversarial fixtures | Planned |
-| 4F | Worker identity, claim/lease/renew/checkpoint/persist/finish RPCs and Storage read | ADR 0005, 4C | Cross-owner, stale lease, replay, credential tests | Blocked on decision |
-| 4G | Retry/dead-letter/cancel/raw-part retention coordination | 4D-4F | Crash/restart, batch rollback, deletion races | Planned |
+| 4F | Worker identity, claim/lease/renew/checkpoint/persist/finish RPCs and Storage read | ADR 0005, 4C | Cross-owner, stale lease, replay, credential tests | Local foundation in progress; hosted identity/Storage proof pending |
+| 4G | Retry/dead-letter/cancel/raw-part retention coordination | 4D-4F | Crash/restart, batch rollback, deletion races | Local 24-hour cleanup contract in progress; hosted drill pending |
 | 4H | Runtime trigger and 72 MiB performance/egress benchmark | 4F, staging | Time/memory/egress report; provider failure drill | Planned |
 | 4I | Owner-visible progress/warnings and safe operational diagnostics | 4D-4G | API/browser accessibility and redaction tests | Planned |
 | 4J | Staging synthetic full job, cleanup, rollback, and user acceptance | 4A-4I | Release-candidate evidence and matrix approval | Planned |
