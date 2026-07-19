@@ -1,0 +1,193 @@
+{
+  "info": {
+    "name": "Supabase staging worker Auth setup",
+    "description": "Creates a dedicated staging worker user, sets app_metadata.import_worker=true, and verifies the claim. Replace placeholders locally; never commit or sync secret values.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "SUPABASE_URL",
+      "value": "https://<project-ref>.supabase.co"
+    },
+    {
+      "key": "SUPABASE_SECRET_KEY",
+      "value": "<paste-locally-do-not-sync>",
+      "type": "secret"
+    },
+    {
+      "key": "WORKER_EMAIL",
+      "value": "<staging-only-mailbox>"
+    },
+    {
+      "key": "WORKER_PASSWORD",
+      "value": "<generate-locally-do-not-sync>",
+      "type": "secret"
+    },
+    {
+      "key": "WORKER_USER_ID",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1 - Create worker user",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "apikey",
+            "value": "{{SUPABASE_SECRET_KEY}}"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{SUPABASE_SECRET_KEY}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{WORKER_EMAIL}}\",\n  \"password\": \"{{WORKER_PASSWORD}}\",\n  \"email_confirm\": true,\n  \"app_metadata\": {\n    \"import_worker\": true\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{SUPABASE_URL}}/auth/v1/admin/users",
+          "host": [
+            "{{SUPABASE_URL}}"
+          ],
+          "path": [
+            "auth",
+            "v1",
+            "admin",
+            "users"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('user created', function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+              "});",
+              "const body = pm.response.json();",
+              "if (body.id) {",
+              "  pm.collectionVariables.set('WORKER_USER_ID', body.id);",
+              "}",
+              "pm.test('worker user id captured', function () {",
+              "  pm.expect(body.id).to.be.a('string').and.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2 - Set worker app metadata",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "apikey",
+            "value": "{{SUPABASE_SECRET_KEY}}"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{SUPABASE_SECRET_KEY}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"app_metadata\": {\n    \"import_worker\": true\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{SUPABASE_URL}}/auth/v1/admin/users/{{WORKER_USER_ID}}",
+          "host": [
+            "{{SUPABASE_URL}}"
+          ],
+          "path": [
+            "auth",
+            "v1",
+            "admin",
+            "users",
+            "{{WORKER_USER_ID}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('metadata updated', function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3 - Verify worker app metadata",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "apikey",
+            "value": "{{SUPABASE_SECRET_KEY}}"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{SUPABASE_SECRET_KEY}}"
+          }
+        ],
+        "url": {
+          "raw": "{{SUPABASE_URL}}/auth/v1/admin/users/{{WORKER_USER_ID}}",
+          "host": [
+            "{{SUPABASE_URL}}"
+          ],
+          "path": [
+            "auth",
+            "v1",
+            "admin",
+            "users",
+            "{{WORKER_USER_ID}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.test('metadata is worker-only claim', function () {",
+              "  pm.expect(pm.response.code).to.equal(200);",
+              "  pm.expect(body.app_metadata.import_worker).to.equal(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

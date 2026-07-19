@@ -1,15 +1,15 @@
 # Delivery tracker
 
-Last reviewed: 2026-07-19
+Last reviewed: 2026-07-20
 
 This is the living status document. Update it at each meaningful handoff, accepted scope change, new blocker, pull-request transition, and release. Product intent belongs in `PROJECT_PLAN.md`; detailed change design belongs in a change plan.
 
 ## Current release
 
 - Release target: private non-clinical V1.
-- Current gate: Step 4 local worker foundation after the merged parser, scalar, sleep, activity, workout, motion-repair, and fuzz slices. Step 3's hosted synthetic two-user, quota/outage, and cleanup suite remains explicitly deferred and is out of scope.
-- Current branch: `codex/step-4-worker-foundation`.
-- Active milestone: Step 4 lease/checkpoint/retry/cleanup and owner-visible processing contracts. ADR 0005 Option A (dedicated non-browser worker identity) and a 24-hour raw-source recovery window are approved for source/local implementation; hosted identity, trigger, provider, and secret configuration remain gated.
+- Current gate: Step 4 staging-safe manual worker trigger and synthetic benchmark after the merged parser, scalar, sleep, activity, workout, motion-repair, fuzz, and local worker-foundation slices. Step 3's hosted synthetic two-user, quota/outage, and cleanup suite remains explicitly deferred and is out of scope.
+- Current branch: `codex/step-4-manual-trigger-benchmark`.
+- Active milestone: Step 4 lease/checkpoint/retry/cleanup and owner-visible processing contracts. ADR 0005 Option A (dedicated non-browser worker identity) and a 24-hour raw-source recovery window are approved; this slice adds a staging-only authenticated synthetic trigger. Real Storage-backed import execution and canonical persistence remain pending.
 - Active Step 4 plan: [`plans/0004-huawei-json-normalization.md`](plans/0004-huawei-json-normalization.md).
 - The Go foreground access decision is accepted in [`decisions/0002-foreground-supabase-access.md`](decisions/0002-foreground-supabase-access.md). Preview isolation is required before hosted verification (3I).
 - Production status: not provisioned and not approved for user data.
@@ -22,7 +22,7 @@ This is the living status document. Update it at each meaningful handoff, accept
 | 1 | Local Next.js/Go vertical slice | Done on `main` | Web/API baseline merged in PR #1 |
 | 2 | Supabase Auth, profiles, SSR sessions, JWT verification, and RLS | Done | Local email via Mailpit and Google login verified; PR #2 merged after Documentation, Web, and API checks passed |
 | 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | Handoff PR #16 open | User accepted local browser evidence plus hosted Google Auth and authenticated upload-to-queue. Hosted synthetic two-user RLS, quota/outage, and cleanup smoke is deferred and remains a recorded operational risk |
-| 4 | Streaming Huawei JSON parsing, normalization, provenance, and dedupe | Worker foundation in progress | PRs #17-#23 merged: parser, scalar/sleep/activity/workout mappings, motion repair, fuzz hardening. Next gate is local worker lease/checkpoint/retry/cleanup proof; ECG/RRI and GPS remain discarded |
+| 4 | Streaming Huawei JSON parsing, normalization, provenance, and dedupe | Staging synthetic trigger in progress | PRs #17-#23 merged; this slice adds an authenticated `synthetic_benchmark` trigger and redacted 72 MiB parser/recovery benchmark. Real Storage-backed job execution, canonical persistence adapter, and owner-visible processing UI remain pending; ECG/RRI and GPS remain discarded |
 | 5 | Legacy XLS allowlisted backfill and precedence | Planned | Parser library spike and sanitized fixture acceptance |
 | 6 | First summary, goals, reports, and dashboard | Planned | Normalized data contracts and UX acceptance |
 | 7 | Explainable scores, trends, deterministic suggestions, and safety copy | Planned | Metric coverage and threshold decisions |
@@ -123,6 +123,7 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | 2026-07-19 | Hosted synthetic smoke attempt | Two synthetic signup attempts used reserved/non-personal domains; provider rejected the first as invalid (400) and then rate-limited requests (429). Bounded unauthenticated API checks remain fail-closed; cleanup query reports zero expired candidates | Authenticated upload, cross-user denial, quota, and authenticated cleanup evidence blocked by Auth rate limit; no tokens or payloads recorded |
 | 2026-07-19 | Hosted staging PR | PR #14 opened from `codex/step-3-hosted-staging` with migration and non-sensitive evidence; Documentation, Web, and API checks green | Supabase schema/RLS check pending; do not merge until required CI completes |
 | 2026-07-19 | Step 3 final acceptance | Local synthetic browser suite passed upload pause/resume, refresh/reselect, owner denial, cancel, and cleanup; user completed hosted Google Auth and authenticated upload-to-queue; aggregate staging state reports one queued import | User accepted Step 3 handoff; hosted synthetic two-user RLS, quota/outage, and cleanup smoke is deferred, not passed |
+| 2026-07-20 | Step 4 staging trigger slice | Added server-only worker identity authentication, constant-time trigger secret validation, synthetic-only mode rejection for real imports, bounded 72 MiB streaming benchmark, deterministic recovery check, and privacy-safe redacted response/tests | Local Go test/vet and documentation checks green; deployment/hosted benchmark evidence pending; no credentials or health payloads recorded |
 
 Do not record credential values, email addresses, raw health content, or private incident details in this log.
 

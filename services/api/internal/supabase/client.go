@@ -28,6 +28,10 @@ type APIError struct {
 	Code   string
 }
 
+type WorkerIdentity struct {
+	ImportWorker bool
+}
+
 func (err *APIError) Error() string {
 	return fmt.Sprintf("supabase request failed: status=%d code=%s", err.Status, err.Code)
 }
@@ -107,6 +111,35 @@ func (client *Client) CleanupImports(ctx context.Context, accessToken string) (i
 		result.DeletedCount++
 	}
 	return result, nil
+}
+
+// AuthenticateWorker obtains a short-lived Auth token for the dedicated
+// staging worker identity. The password never leaves this request and the
+// response is reduced to the app_metadata claim needed by the trigger.
+func (client *Client) AuthenticateWorker(ctx context.Context, email, password string) (WorkerIdentity, error) {
+	if strings.TrimSpace(email) == "" || strings.TrimSpace(password) == "" {
+		return WorkerIdentity{}, errors.New("worker_configuration_invalid")
+	}
+	var response struct {
+		AccessToken string `json:"access_token"`
+		User        struct {
+			AppMetadata map[string]any `json:"app_metadata"`
+		} `json:"user"`
+	}
+	if err := client.requestJSON(ctx, client.publishableKey, http.MethodPost, "/auth/v1/token?grant_type=password", map[string]string{
+		"email":    email,
+		"password": password,
+	}, &response); err != nil {
+		return WorkerIdentity{}, err
+	}
+	if response.AccessToken == "" {
+		return WorkerIdentity{}, errors.New("worker_configuration_invalid")
+	}
+	claim, ok := response.User.AppMetadata["import_worker"].(bool)
+	if !ok || !claim {
+		return WorkerIdentity{}, errors.New("worker_configuration_invalid")
+	}
+	return WorkerIdentity{ImportWorker: true}, nil
 }
 
 func (client *Client) rpc(ctx context.Context, accessToken, name string, body any) (imports.Snapshot, error) {
