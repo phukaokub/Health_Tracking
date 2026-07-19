@@ -7,7 +7,7 @@ This is the living status document. Update it at each meaningful handoff, accept
 ## Current release
 
 - Release target: private non-clinical V1.
-- Current gate: Step 3 handoff PR pending. The user accepted the implemented upload outcome after local browser acceptance and a hosted authenticated upload-to-queue check; the remaining hosted synthetic two-user, quota/outage, and cleanup suite is explicitly deferred.
+- Current gate: Step 3 handoff PR [#16](https://github.com/phukaokub/Health_Tracking/pull/16) open. The user accepted the implemented upload outcome after local browser acceptance and a hosted authenticated upload-to-queue check; the remaining hosted synthetic two-user, quota/outage, and cleanup suite is explicitly deferred.
 - Current branch: `codex/step-3-handoff`.
 - Active milestone: merge the final Step 3 handoff. Supabase project `Health_Tracking` (`gdccossstmochzfgjqxz`, `ap-southeast-1`) is the accepted shared staging target.
 - Active Step 3 plan: [`plans/0003-import-manifest-upload.md`](plans/0003-import-manifest-upload.md).
@@ -21,7 +21,7 @@ This is the living status document. Update it at each meaningful handoff, accept
 | 0 | Repository and developer baseline | Done on `main` | Repository structure and local commands established |
 | 1 | Local Next.js/Go vertical slice | Done on `main` | Web/API baseline merged in PR #1 |
 | 2 | Supabase Auth, profiles, SSR sessions, JWT verification, and RLS | Done | Local email via Mailpit and Google login verified; PR #2 merged after Documentation, Web, and API checks passed |
-| 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | Handoff PR pending | User accepted local browser evidence plus hosted Google Auth and authenticated upload-to-queue. Hosted synthetic two-user RLS, quota/outage, and cleanup smoke is deferred and remains a recorded operational risk |
+| 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | Handoff PR #16 open | User accepted local browser evidence plus hosted Google Auth and authenticated upload-to-queue. Hosted synthetic two-user RLS, quota/outage, and cleanup smoke is deferred and remains a recorded operational risk |
 | 4 | Streaming Huawei JSON parsing, normalization, provenance, and dedupe | Proposed plan | Review [`plans/0004-huawei-json-normalization.md`](plans/0004-huawei-json-normalization.md), source coverage, and worker access ADR before implementation |
 | 5 | Legacy XLS allowlisted backfill and precedence | Planned | Parser library spike and sanitized fixture acceptance |
 | 6 | First summary, goals, reports, and dashboard | Planned | Normalized data contracts and UX acceptance |
