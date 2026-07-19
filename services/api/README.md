@@ -4,7 +4,13 @@ This Go service owns versioned HTTP boundaries, Supabase JWT/JWKS verification, 
 
 ## Local configuration
 
-`.env.example` documents the required process variables, but the Go binary does not automatically load the file. Set values in the shell or deployment platform. The JWT verifier uses public JWKS. Foreground import persistence forwards the verified user JWT with the Supabase publishable key so database and Storage RLS remain authoritative; it does not use a Supabase secret/service-role key.
+`.env.example` documents the required process variables, but the Go binary does not automatically load the file. The normal local command is run from the repository root; it starts local Supabase, derives the local publishable key without displaying it, sets the API process environment, and starts Go:
+
+```powershell
+go run ./cmd/dev
+```
+
+`./start-local.cmd` runs the same command on Windows. Before the first run, copy `../../.env.local.example` to `../../.env.local` and set the local Google OAuth client ID and secret once; the file is ignored by Git. Use `go run ./cmd/dev -check-only` to confirm local Supabase and the API environment without starting the server. The JWT verifier uses public JWKS. Foreground import persistence forwards the verified user JWT with the Supabase publishable key so database and Storage RLS remain authoritative; it does not use a Supabase secret/service-role key.
 
 PowerShell example:
 

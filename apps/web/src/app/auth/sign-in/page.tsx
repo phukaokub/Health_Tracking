@@ -33,7 +33,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
         </div>
         <h1 className="mt-6 text-3xl font-semibold tracking-tight">Sign in to Health Tracking</h1>
         <p className="mt-2 text-sm leading-6 text-slate-300">Use your verified email and password. Google sign-in can be enabled in local Supabase with PKCE callbacks.</p>
-        {message ? <p className="mt-4 rounded-2xl bg-cyan-300/10 p-3 text-sm text-cyan-100">{message}</p> : null}
+        {message && params.error ? <p className="mt-4 rounded-2xl bg-cyan-300/10 p-3 text-sm text-red-100">{message}</p> : null}
         <form action={signInWithPassword} className="mt-6 space-y-4">
           <label className="block text-sm font-medium">Email<input name="email" type="email" autoComplete="email" required className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-white" /></label>
           <label className="block text-sm font-medium">Password<input name="password" type="password" autoComplete="current-password" required className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-white" /></label>

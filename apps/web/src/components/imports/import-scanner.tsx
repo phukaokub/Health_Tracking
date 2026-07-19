@@ -192,18 +192,18 @@ export function ImportScanner() {
 
   return (
     <section className="rounded-3xl border border-white/10 bg-white/10 p-6">
-      <h1 className="text-3xl font-semibold">Review and import a health export</h1>
+      <h1 className="text-3xl font-semibold">Review files before import</h1>
       <p className="mt-3 text-slate-300">
-        Review runs locally. When you approve a folder or ZIP import, supported bytes go directly to private Supabase Storage and never pass through Next.js or the Go API.
+        Review happens on this device. Choose a folder or ZIP file from your health app. When you upload, supported files go directly to private Supabase Storage and never pass through Next.js or the Go API.
       </p>
       {cleanupNotice ? <p className="mt-3 text-sm text-amber-100" aria-live="polite">{cleanupNotice}</p> : null}
       <input ref={inputRef} className="sr-only" type="file" multiple onChange={scanSelection} />
       <input ref={zipInputRef} className="sr-only" type="file" accept=".zip,application/zip" onChange={scanZipSelection} />
       <button disabled={isBusy} className="mt-6 rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50" type="button" onClick={chooseDirectory}>
-        Choose export folder
+        Choose a folder
       </button>
       <button disabled={isBusy} className="ml-3 mt-6 rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50" type="button" onClick={chooseZip}>
-        Choose ZIP export
+        Choose a ZIP file
       </button>
 
       {progress ? (
@@ -221,7 +221,7 @@ export function ImportScanner() {
           {result.warnings.length ? <p className="mt-2 text-amber-200">Some entries were ignored because their path or size policy was unsafe.</p> : null}
           <p className="mt-3 text-slate-400">Names, paths, file contents, and health values are not displayed or sent as metadata.</p>
           {sourceKind && planned > 0 && uploadStage === "idle" && uploadEnabled ? (
-            <button className="mt-4 rounded-full bg-emerald-300 px-5 py-2 font-semibold text-slate-950" type="button" onClick={startUpload}>Upload supported files</button>
+            <button className="mt-4 rounded-full bg-emerald-300 px-5 py-2 font-semibold text-slate-950" type="button" onClick={startUpload}>Upload files for import</button>
           ) : null}
           {sourceKind && planned > 0 && !uploadEnabled ? <p className="mt-4 text-cyan-100">Direct upload is disabled until the current Step 3 verification window is explicitly enabled.</p> : null}
         </div>

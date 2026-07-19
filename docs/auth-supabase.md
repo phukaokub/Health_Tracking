@@ -22,41 +22,32 @@ npx supabase --help
 
 ## Local Google variables
 
-The names must match `supabase/config.toml` and must exist in the process that runs `npx supabase start`.
-
-PowerShell:
+Copy the repository-root `.env.local.example` to `.env.local` once, then add
+the local Google Web client ID and secret. The file is ignored by Git. Its names
+match `supabase/config.toml`, and `go run ./cmd/dev` loads them before restarting
+local Supabase:
 
 ```powershell
-$env:SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID = "<local-client-id>"
-$env:SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET = "<local-client-secret>"
+Copy-Item .env.local.example .env.local
+cd services/api
+go run ./cmd/dev
 ```
 
-Git Bash:
-
-```bash
-export SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID="<local-client-id>"
-export SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET="<local-client-secret>"
-```
-
-Do not use `set $NAME=...` in PowerShell; that does not create the environment variable expected by the child process.
+Do not put these values in `apps/web/.env.local`, Vercel, chat, or Git.
 
 ## Start/reset local Supabase
 
-From the repository root:
+From the repository root, use the launcher for normal local development:
 
-```text
-npx supabase start
-npx supabase db reset
+```powershell
+cd services/api
+go run ./cmd/dev
 ```
 
 `npx supabase db reset` is destructive to local users/data: it recreates the local database from migrations. Use it for a clean migration test, not every time you start the stack.
 
-After changing Google variables or `supabase/config.toml`, restart:
-
-```text
-npx supabase stop
-npx supabase start
-```
+The launcher restarts local Supabase automatically after reading `.env.local`,
+so Google Auth receives the configured credentials after a reboot or rotation.
 
 `npx supabase status` includes both public and secret local values. Copy only:
 

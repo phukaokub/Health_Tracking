@@ -7,9 +7,9 @@ This is the living status document. Update it at each meaningful handoff, accept
 ## Current release
 
 - Release target: private non-clinical V1.
-- Current gate: Step 3 implementation PRs [#3](https://github.com/phukaokub/Health_Tracking/pull/3) through [#9](https://github.com/phukaokub/Health_Tracking/pull/9) are merged on `main` at `b79d63e`; local browser acceptance is green and hosted staging evidence remains before the milestone is done.
-- Current branch: `codex/step-3-hosted-staging`, hosted-staging evidence PR pending.
-- Active milestone: close the Step 3 hosted-environment gate. User approved Supabase project `Health_Tracking` (`gdccossstmochzfgjqxz`, `ap-southeast-1`) as shared synthetic staging and approved preview web/API configuration.
+- Current gate: Step 3 handoff PR [#16](https://github.com/phukaokub/Health_Tracking/pull/16) open. The user accepted the implemented upload outcome after local browser acceptance and a hosted authenticated upload-to-queue check; the remaining hosted synthetic two-user, quota/outage, and cleanup suite is explicitly deferred.
+- Current branch: `codex/step-3-handoff`.
+- Active milestone: merge the final Step 3 handoff. Supabase project `Health_Tracking` (`gdccossstmochzfgjqxz`, `ap-southeast-1`) is the accepted shared staging target.
 - Active Step 3 plan: [`plans/0003-import-manifest-upload.md`](plans/0003-import-manifest-upload.md).
 - The Go foreground access decision is accepted in [`decisions/0002-foreground-supabase-access.md`](decisions/0002-foreground-supabase-access.md). Preview isolation is required before hosted verification (3I).
 - Production status: not provisioned and not approved for user data.
@@ -21,7 +21,7 @@ This is the living status document. Update it at each meaningful handoff, accept
 | 0 | Repository and developer baseline | Done on `main` | Repository structure and local commands established |
 | 1 | Local Next.js/Go vertical slice | Done on `main` | Web/API baseline merged in PR #1 |
 | 2 | Supabase Auth, profiles, SSR sessions, JWT verification, and RLS | Done | Local email via Mailpit and Google login verified; PR #2 merged after Documentation, Web, and API checks passed |
-| 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | Hosted Auth blocked | Migrations, RLS hardening, preview deployments, health, and unauthenticated fail-closed checks are green; synthetic Auth signup is currently provider-rate-limited (HTTP 429), so authenticated upload/cross-user/quota smoke remains pending |
+| 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | Handoff PR #16 open | User accepted local browser evidence plus hosted Google Auth and authenticated upload-to-queue. Hosted synthetic two-user RLS, quota/outage, and cleanup smoke is deferred and remains a recorded operational risk |
 | 4 | Streaming Huawei JSON parsing, normalization, provenance, and dedupe | Proposed plan | Review [`plans/0004-huawei-json-normalization.md`](plans/0004-huawei-json-normalization.md), source coverage, and worker access ADR before implementation |
 | 5 | Legacy XLS allowlisted backfill and precedence | Planned | Parser library spike and sanitized fixture acceptance |
 | 6 | First summary, goals, reports, and dashboard | Planned | Normalized data contracts and UX acceptance |
@@ -47,7 +47,7 @@ or a documented independent compatibility, release, or review boundary.
 | 3F | Add Go manifest/completion endpoints, user scope, validation, idempotent job creation, and structured redacted logs | 3A, 3B | Complete in merged PR #7 (`674f364`): bounded create/page/status/complete/delete, user-JWT/RLS adapter, idempotent job, and redacted two-user local probe |
 | 3G | Build import wizard states: instructions, review, upload, recovery, completion, warning, cancel, and cleanup | 3D, 3E, 3F | Complete in PRs #8/#9; 390x844 Chromium flow verifies keyboard focus order, ARIA progress state, interruption recovery, queue, and cancel/delete messaging |
 | 3H | Add abandoned/failed upload cleanup and import deletion path | 3B, 3C, 3F | Complete in PR #9 for caller-owned reconciliation and deletion; system-wide scheduling is deferred to the Step 4 worker decision |
-| 3I | Provision or document staging integration and run browser-to-Storage-to-job smoke | INT-001/002, 3A-3H | Shared staging approved; canonical migrations applied, `rls_auto_enable()` public execution revoked, preview web/API deployed, health and unauthenticated denial checks green. Auth signup is rate-limited (HTTP 429), blocking authenticated upload/RLS/quota smoke until the provider window clears |
+| 3I | Provision or document staging integration and run browser-to-Storage-to-job smoke | INT-001/002, 3A-3H | Shared staging accepted; migrations/security baseline and Vercel targets configured; user completed hosted Google Auth and authenticated upload-to-queue. Synthetic two-user RLS, quota/outage, and cleanup smoke deferred by user acceptance |
 
 ### Step 3 non-goals
 
@@ -89,7 +89,7 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | R-006 | CI proves documentation, web build, Go baseline, local migration/RLS tests, and generated browser import E2E; repository-wide dependency/security scanning is not required | Medium/high before launch | Keep the browser gate required and add dependency/secret scanning before Step 9 | Reduced; open |
 | R-007 | Application rollback is incompatible with a database migration | Medium/high | Expand/migrate/contract, staging compatibility tests, forward-repair runbook | Continuous |
 | R-008 | Next.js 16.2.10 currently brings a PostCSS advisory without a non-breaking stable npm-audit resolution | Medium/medium | Track upstream fixed release, avoid untrusted runtime CSS stringification, and verify upgrade through Step 8 dependency review; do not apply npm's breaking downgrade suggestion | Open |
-| R-009 | Hosted Auth signup abuse protection rate-limits synthetic test creation | Medium/high | Retry after provider cooldown or configure an approved staging Auth test path; never weaken Auth or use service-role credentials | Open; HTTP 429 during hosted smoke |
+| R-009 | Hosted synthetic two-user, quota/outage, and cleanup smoke remains incomplete | Medium/high | Preserve local RLS/cleanup acceptance and run the deferred hosted suite before external beta or production release | Deferred by user acceptance; do not treat as production evidence |
 
 ## Evidence log
 
@@ -119,6 +119,7 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | 2026-07-19 | Hosted preview deployment | Vercel projects `health-tracking-api-staging` and `health-tracking-web-staging` configured with preview-only Supabase/API values; API health 200 and web 200; unauthenticated `/me`, `/imports`, and malformed import route return 401 | Green; no production project or user data |
 | 2026-07-19 | Hosted synthetic smoke attempt | Two synthetic signup attempts used reserved/non-personal domains; provider rejected the first as invalid (400) and then rate-limited requests (429). Bounded unauthenticated API checks remain fail-closed; cleanup query reports zero expired candidates | Authenticated upload, cross-user denial, quota, and authenticated cleanup evidence blocked by Auth rate limit; no tokens or payloads recorded |
 | 2026-07-19 | Hosted staging PR | PR #14 opened from `codex/step-3-hosted-staging` with migration and non-sensitive evidence; Documentation, Web, and API checks green | Supabase schema/RLS check pending; do not merge until required CI completes |
+| 2026-07-19 | Step 3 final acceptance | Local synthetic browser suite passed upload pause/resume, refresh/reselect, owner denial, cancel, and cleanup; user completed hosted Google Auth and authenticated upload-to-queue; aggregate staging state reports one queued import | User accepted Step 3 handoff; hosted synthetic two-user RLS, quota/outage, and cleanup smoke is deferred, not passed |
 
 Do not record credential values, email addresses, raw health content, or private incident details in this log.
 

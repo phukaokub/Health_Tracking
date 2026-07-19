@@ -45,20 +45,20 @@ test("ZIP upload pauses, survives refresh and queues exactly one owner-scoped jo
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await signInThroughUI(page, owner);
-  await page.getByRole("link", { name: "Review a local export" }).click();
-  await expect(page.getByRole("heading", { name: "Review and import a health export" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Choose export folder" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Choose ZIP export" })).toBeVisible();
-  await page.getByRole("button", { name: "Choose export folder" }).focus();
+  await page.getByRole("link", { name: "Import health data" }).click();
+  await expect(page.getByRole("heading", { name: "Review files before import" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Choose a folder" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Choose a ZIP file" })).toBeVisible();
+  await page.getByRole("button", { name: "Choose a folder" }).focus();
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("button", { name: "Choose ZIP export" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Choose a ZIP file" })).toBeFocused();
 
   const archive = syntheticZIP(8 * 1024 * 1024, 17);
   await selectZIP(page, archive);
   await expect(page.getByText(/1 supported files/)).toBeVisible();
 
   const pauseGate = await blockFirstTUSPatch(page);
-  await page.getByRole("button", { name: "Upload supported files" }).click();
+  await page.getByRole("button", { name: "Upload files for import" }).click();
   await pauseGate.started;
   await expect(page.locator('[aria-live="polite"]')).toContainText("Uploading directly to private Storage");
   await page.getByRole("button", { name: "Pause" }).click();
@@ -68,7 +68,7 @@ test("ZIP upload pauses, survives refresh and queues exactly one owner-scoped jo
   await page.reload();
   await selectZIP(page, archive);
   await expect(page.getByText(/1 supported files/)).toBeVisible();
-  await page.getByRole("button", { name: "Upload supported files" }).click();
+  await page.getByRole("button", { name: "Upload files for import" }).click();
   await expect(page.getByText("Upload verified and queued. Parsing begins in Step 4.")).toBeVisible({ timeout: 40_000 });
 
   const run = await latestRun();
@@ -95,13 +95,13 @@ test("ZIP upload pauses, survives refresh and queues exactly one owner-scoped jo
 
 test("cancelling an active ZIP upload deletes caller-owned objects and metadata", async ({ page }) => {
   await signInThroughUI(page, owner);
-  await page.getByRole("link", { name: "Review a local export" }).click();
+  await page.getByRole("link", { name: "Import health data" }).click();
   const archive = syntheticZIP(8 * 1024 * 1024, 29);
   await selectZIP(page, archive);
   await expect(page.getByText(/1 supported files/)).toBeVisible();
 
   const cancelGate = await blockFirstTUSPatch(page);
-  await page.getByRole("button", { name: "Upload supported files" }).click();
+  await page.getByRole("button", { name: "Upload files for import" }).click();
   await cancelGate.started;
   await page.getByRole("button", { name: "Cancel and delete" }).click();
   cancelGate.release();

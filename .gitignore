@@ -18,6 +18,11 @@ coverage.out
 .temp/
 supabase/.branches/
 
+# Locally installed agent skills
+.agents/skills/
+.claude/
+skills-lock.json
+
 # Personal data and exports
 HUAWEI_HEALTH_*/
 .codex-fixtures/

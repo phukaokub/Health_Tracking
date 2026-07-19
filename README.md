@@ -26,10 +26,17 @@ npm run dev
 
 Run the API in a second terminal:
 
-```text
+```powershell
 cd services/api
-go run ./cmd/api
+go run ./cmd/dev
 ```
+
+This starts local Supabase, derives the local public key for the API process,
+and then starts the Go service. It does not use hosted staging configuration.
+It reports safe progress without printing keys or secrets. `./start-local.cmd`
+from the repository root is an equivalent Windows shortcut.
+Before the first run, copy `.env.local.example` to `.env.local` and add the
+local Google OAuth client ID and secret once.
 
 The Supabase CLI is required from Step 2 onward and is run through `npx`:
 
