@@ -1,0 +1,6 @@
+create table public.activities (
+ id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade, import_id uuid not null, import_file_id uuid not null, dedupe_key text not null, source_record_hash text not null, activity_type text not null, started_at timestamptz not null, ended_at timestamptz not null, duration_seconds integer not null, parser_version text not null, created_at timestamptz not null default now(),
+ constraint activities_import_owner_fk foreign key(import_id,user_id) references public.import_runs(id,user_id) on delete cascade, constraint activities_file_owner_fk foreign key(import_file_id,import_id,user_id) references public.import_files(id,import_id,user_id) on delete cascade, constraint activities_owner_dedupe unique(user_id,dedupe_key), constraint activities_type check(activity_type in ('walking','running','cycling','other')), constraint activities_time check(ended_at>started_at and duration_seconds>0), constraint activities_hash check(source_record_hash ~ '^[0-9a-f]{64}$')
+);
+alter table public.activities enable row level security; grant select on public.activities to authenticated;
+create policy "Activities are readable by owner" on public.activities for select to authenticated using ((select auth.uid())=user_id);

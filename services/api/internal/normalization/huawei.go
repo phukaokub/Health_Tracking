@@ -48,6 +48,7 @@ type Sample struct {
 type Result struct {
 	Samples       []Sample       `json:"samples"`
 	SleepSessions []SleepSession `json:"sleep_sessions"`
+	Activities    []Activity     `json:"activities"`
 	Warnings      []Warning      `json:"warnings"`
 }
 type SleepSession struct {
@@ -65,15 +66,25 @@ type SleepStage struct {
 	EndedAt   time.Time `json:"ended_at"`
 	DedupeKey string    `json:"dedupe_key"`
 }
+type Activity struct {
+	SourceRecordHash string    `json:"source_record_hash"`
+	ActivityType     string    `json:"activity_type"`
+	StartedAt        time.Time `json:"started_at"`
+	EndedAt          time.Time `json:"ended_at"`
+	DurationSeconds  int64     `json:"duration_seconds"`
+	DedupeKey        string    `json:"dedupe_key"`
+	ParserVersion    string    `json:"parser_version"`
+}
 
 type sourceRecord struct {
-	Type      string             `json:"type"`
-	RecordID  string             `json:"record_id"`
-	StartedAt string             `json:"started_at"`
-	EndedAt   string             `json:"ended_at"`
-	Unit      string             `json:"unit"`
-	Value     json.RawMessage    `json:"value"`
-	Stages    []sourceSleepStage `json:"stages"`
+	Type         string             `json:"type"`
+	RecordID     string             `json:"record_id"`
+	StartedAt    string             `json:"started_at"`
+	EndedAt      string             `json:"ended_at"`
+	Unit         string             `json:"unit"`
+	Value        json.RawMessage    `json:"value"`
+	Stages       []sourceSleepStage `json:"stages"`
+	ActivityType string             `json:"activity_type"`
 }
 type sourceSleepStage struct {
 	Code      string `json:"code"`
@@ -139,6 +150,19 @@ func ParseHuaweiJSON(reader io.Reader) (Result, error) {
 				}
 				continue
 			}
+			if record.Type == "activity" {
+				activity, warning, err := normalizeActivity(record)
+				if err != nil {
+					return Result{}, err
+				}
+				if warning != nil {
+					result.Warnings = append(result.Warnings, *warning)
+				}
+				if activity != nil {
+					result.Activities = append(result.Activities, *activity)
+				}
+				continue
+			}
 			sample, warning, err := normalizeRecord(record)
 			if err != nil {
 				return Result{}, err
@@ -161,6 +185,22 @@ func ParseHuaweiJSON(reader io.Reader) (Result, error) {
 		return Result{}, &SafeError{Code: "source_schema_unsupported"}
 	}
 	return result, nil
+}
+
+func normalizeActivity(record sourceRecord) (*Activity, *Warning, error) {
+	if record.RecordID == "" || record.ActivityType == "" {
+		return nil, nil, &SafeError{Code: "source_schema_unsupported"}
+	}
+	start, e1 := time.Parse(time.RFC3339, record.StartedAt)
+	end, e2 := time.Parse(time.RFC3339, record.EndedAt)
+	if e1 != nil || e2 != nil || !end.After(start) {
+		return nil, nil, &SafeError{Code: "timestamp_invalid"}
+	}
+	if record.ActivityType != "walking" && record.ActivityType != "running" && record.ActivityType != "cycling" && record.ActivityType != "other" {
+		return nil, &Warning{Code: "metric_mapping_unknown"}, nil
+	}
+	h := hash(record.RecordID)
+	return &Activity{SourceRecordHash: h, ActivityType: record.ActivityType, StartedAt: start.UTC(), EndedAt: end.UTC(), DurationSeconds: int64(end.Sub(start).Seconds()), DedupeKey: hash(strings.Join([]string{"v1", SourceFamily, "activity", h, record.ActivityType, start.UTC().Format(time.RFC3339Nano), end.UTC().Format(time.RFC3339Nano)}, "|")), ParserVersion: ParserVersion}, nil, nil
 }
 
 func normalizeSleep(record sourceRecord) (*SleepSession, *Warning, error) {

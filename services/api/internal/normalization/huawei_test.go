@@ -80,6 +80,21 @@ func TestParseHuaweiJSONMapsSleepWithoutRawStagePayload(t *testing.T) {
 	}
 }
 
+func TestParseHuaweiJSONMapsActivityWithoutRoute(t *testing.T) {
+	input := `{"records":[{"type":"activity","record_id":"synthetic-activity","activity_type":"walking","started_at":"2026-01-02T00:00:00Z","ended_at":"2026-01-02T00:10:00Z","route":[{"lat":0,"lon":0}]}]}`
+	result, err := ParseHuaweiJSON(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Activities) != 1 || result.Activities[0].DurationSeconds != 600 {
+		t.Fatalf("unexpected activity: %#v", result)
+	}
+	encoded, _ := json.Marshal(result)
+	if strings.Contains(string(encoded), "route") || strings.Contains(string(encoded), "synthetic-activity") {
+		t.Fatalf("raw activity content escaped: %s", encoded)
+	}
+}
+
 func TestParseHuaweiJSONReturnsSafeMalformedCodes(t *testing.T) {
 	for _, input := range []string{"{\"records\":[", `{"records":{}}`, `{"records":[{"type":"heart_rate","record_id":"x","started_at":"bad","unit":"bpm","value":72}]}`} {
 		_, err := ParseHuaweiJSON(strings.NewReader(input))

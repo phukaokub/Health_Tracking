@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(61);
+SELECT plan(64);
 
 SELECT ok(to_regclass('public.import_runs') is not null, 'import_runs exists');
 SELECT ok(to_regclass('public.import_manifest_pages') is not null, 'import_manifest_pages exists');
@@ -514,7 +514,11 @@ SELECT is(
   0::bigint,
   'another user cannot discover the owner expired import'
 );
+SELECT ok(to_regclass('public.activities') is not null, 'activities exists');
+SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.activities'::regclass), 'activities has RLS');
+SELECT ok(exists (select 1 from pg_constraint where conname = 'activities_owner_dedupe'), 'activities deduplicate per owner');
 RESET ROLE;
 
 SELECT * FROM finish();
 ROLLBACK;
+
