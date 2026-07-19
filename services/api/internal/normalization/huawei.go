@@ -46,17 +46,39 @@ type Sample struct {
 }
 
 type Result struct {
-	Samples  []Sample  `json:"samples"`
-	Warnings []Warning `json:"warnings"`
+	Samples       []Sample       `json:"samples"`
+	SleepSessions []SleepSession `json:"sleep_sessions"`
+	Warnings      []Warning      `json:"warnings"`
+}
+type SleepSession struct {
+	SourceRecordHash string       `json:"source_record_hash"`
+	StartedAt        time.Time    `json:"started_at"`
+	EndedAt          time.Time    `json:"ended_at"`
+	DurationSeconds  int64        `json:"duration_seconds"`
+	DedupeKey        string       `json:"dedupe_key"`
+	ParserVersion    string       `json:"parser_version"`
+	Stages           []SleepStage `json:"stages"`
+}
+type SleepStage struct {
+	StageCode string    `json:"stage_code"`
+	StartedAt time.Time `json:"started_at"`
+	EndedAt   time.Time `json:"ended_at"`
+	DedupeKey string    `json:"dedupe_key"`
 }
 
 type sourceRecord struct {
-	Type      string          `json:"type"`
-	RecordID  string          `json:"record_id"`
-	StartedAt string          `json:"started_at"`
-	EndedAt   string          `json:"ended_at"`
-	Unit      string          `json:"unit"`
-	Value     json.RawMessage `json:"value"`
+	Type      string             `json:"type"`
+	RecordID  string             `json:"record_id"`
+	StartedAt string             `json:"started_at"`
+	EndedAt   string             `json:"ended_at"`
+	Unit      string             `json:"unit"`
+	Value     json.RawMessage    `json:"value"`
+	Stages    []sourceSleepStage `json:"stages"`
+}
+type sourceSleepStage struct {
+	Code      string `json:"code"`
+	StartedAt string `json:"started_at"`
+	EndedAt   string `json:"ended_at"`
 }
 
 // ParseHuaweiJSON consumes the records array incrementally. It never returns
@@ -104,6 +126,19 @@ func ParseHuaweiJSON(reader io.Reader) (Result, error) {
 			if err := json.Unmarshal(raw, &record); err != nil {
 				return Result{}, &SafeError{Code: "source_schema_unsupported"}
 			}
+			if record.Type == "sleep_session" {
+				session, warning, err := normalizeSleep(record)
+				if err != nil {
+					return Result{}, err
+				}
+				if warning != nil {
+					result.Warnings = append(result.Warnings, *warning)
+				}
+				if session != nil {
+					result.SleepSessions = append(result.SleepSessions, *session)
+				}
+				continue
+			}
 			sample, warning, err := normalizeRecord(record)
 			if err != nil {
 				return Result{}, err
@@ -126,6 +161,36 @@ func ParseHuaweiJSON(reader io.Reader) (Result, error) {
 		return Result{}, &SafeError{Code: "source_schema_unsupported"}
 	}
 	return result, nil
+}
+
+func normalizeSleep(record sourceRecord) (*SleepSession, *Warning, error) {
+	if record.RecordID == "" {
+		return nil, nil, &SafeError{Code: "source_schema_unsupported"}
+	}
+	start, err := time.Parse(time.RFC3339, record.StartedAt)
+	if err != nil {
+		return nil, nil, &SafeError{Code: "timestamp_invalid"}
+	}
+	end, err := time.Parse(time.RFC3339, record.EndedAt)
+	if err != nil || !end.After(start) {
+		return nil, nil, &SafeError{Code: "timestamp_invalid"}
+	}
+	recordHash := hash(record.RecordID)
+	session := &SleepSession{SourceRecordHash: recordHash, StartedAt: start.UTC(), EndedAt: end.UTC(), DurationSeconds: int64(end.Sub(start).Seconds()), ParserVersion: ParserVersion}
+	session.DedupeKey = hash(strings.Join([]string{"v1", SourceFamily, "sleep_session", recordHash, session.StartedAt.Format(time.RFC3339Nano), session.EndedAt.Format(time.RFC3339Nano)}, "|"))
+	for _, stage := range record.Stages {
+		if stage.Code != "awake" && stage.Code != "light" && stage.Code != "deep" && stage.Code != "rem" {
+			return nil, &Warning{Code: "sleep_stage_unknown"}, nil
+		}
+		stageStart, e1 := time.Parse(time.RFC3339, stage.StartedAt)
+		stageEnd, e2 := time.Parse(time.RFC3339, stage.EndedAt)
+		if e1 != nil || e2 != nil || stageEnd.Before(stageStart) || stageStart.Before(start) || stageEnd.After(end) {
+			return nil, nil, &SafeError{Code: "timestamp_invalid"}
+		}
+		key := hash(strings.Join([]string{"v1", session.DedupeKey, stage.Code, stageStart.UTC().Format(time.RFC3339Nano), stageEnd.UTC().Format(time.RFC3339Nano)}, "|"))
+		session.Stages = append(session.Stages, SleepStage{StageCode: stage.Code, StartedAt: stageStart.UTC(), EndedAt: stageEnd.UTC(), DedupeKey: key})
+	}
+	return session, nil, nil
 }
 
 func normalizeRecord(record sourceRecord) (*Sample, *Warning, error) {
