@@ -313,9 +313,13 @@ type FilePlan struct {
 }
 
 type JobSnapshot struct {
-	ID      string `json:"id"`
-	State   string `json:"state"`
-	JobType string `json:"job_type"`
+	ID                    string   `json:"id"`
+	State                 string   `json:"state"`
+	JobType               string   `json:"job_type"`
+	ProcessedFileCount    int      `json:"processed_file_count,omitempty"`
+	NormalizedRecordCount int64    `json:"normalized_record_count,omitempty"`
+	WarningCodes          []string `json:"warning_codes,omitempty"`
+	LastCheckpointAt      string   `json:"last_checkpoint_at,omitempty"`
 }
 
 // NormalizationSnapshot is the owner-visible, privacy-safe Step 4 processing

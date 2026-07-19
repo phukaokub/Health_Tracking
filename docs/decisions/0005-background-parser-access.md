@@ -1,6 +1,6 @@
 # ADR 0005: Background parser runtime and Supabase access
 
-- Status: proposed
+- Status: accepted for the local worker foundation; hosted execution remains gated
 - Date: 2026-07-17
 - Decision owners: product/release owner and engineering/security owner
 - Related milestone/change/PR: Step 4 / 4F-4H / `codex/step-4-plan`
@@ -60,7 +60,11 @@ Prefer Option A for the staging spike: a dedicated non-browser Supabase Auth wor
 
 Run the Go worker in bounded invocations, initially targeting Vercel's 300-second runtime with a 240-second application deadline. Process and commit bounded batches/checkpoints so termination is safe. The trigger remains disabled until Auth session acquisition, runtime headroom, Storage policy, cross-owner denial, and secret rotation all pass in staging.
 
-This is not yet accepted. If worker Auth login/refresh behavior or runtime benchmarks fail, stop and revise this ADR. Do not silently fall back to Option B. A long-lived container runtime or Option C requires provider/cost approval and a revised integration inventory.
+The product/release owner and engineering/security owner approved Option A for
+the source-only worker foundation on 2026-07-19. Hosted Auth identity creation,
+trigger enablement, runtime benchmarking, and secret provisioning remain a
+separate staging gate. If worker Auth login/refresh behavior or runtime
+benchmarks fail, stop and revise this ADR. Do not silently fall back to Option B.
 
 ## Consequences
 
@@ -73,6 +77,8 @@ This is not yet accepted. If worker Auth login/refresh behavior or runtime bench
 ### Negative and follow-up
 
 - Worker Auth rate/session behavior requires a real staging spike.
+- Raw source parts have a 24-hour recovery window after a terminal worker
+  result; cleanup is eligible only after that window and when no lease is active.
 - Security-definer helpers that inspect worker claims/leases require empty search paths, explicit execute grants, pgTAP cross-owner tests, and Supabase advisor review.
 - Vercel deployment/runtime configuration and costs are not yet provisioned.
 - System-wide abandoned cleanup should reuse the accepted worker identity only after its permissions are separately proven.

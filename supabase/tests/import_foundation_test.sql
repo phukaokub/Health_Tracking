@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(67);
+SELECT plan(98);
 
 SELECT ok(to_regclass('public.import_runs') is not null, 'import_runs exists');
 SELECT ok(to_regclass('public.import_manifest_pages') is not null, 'import_manifest_pages exists');
@@ -229,6 +229,8 @@ INSERT INTO public.health_samples (
   'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
   '2026-01-02T00:00:00Z', '2026-01-02T00:01:00Z', 'count', 1, 'huawei-json-v1'
 );
+INSERT INTO public.import_jobs (id, import_id, user_id, state)
+VALUES ('50000000-0000-4000-8000-000000000031', '10000000-0000-4000-8000-000000000031', '00000000-0000-4000-8000-000000000031', 'queued');
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000031', true);
@@ -520,6 +522,63 @@ SELECT ok(exists (select 1 from pg_constraint where conname = 'activities_owner_
 SELECT ok(to_regclass('public.workout_sessions') is not null, 'workout_sessions exists');
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.workout_sessions'::regclass), 'workout sessions have RLS');
 SELECT ok(exists (select 1 from pg_constraint where conname = 'workout_sessions_owner_dedupe'), 'workout sessions deduplicate per owner');
+SELECT ok(exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'import_runs' and column_name = 'raw_parts_recovery_until'), 'imports record the raw-part recovery deadline');
+SELECT ok(exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'import_jobs' and column_name = 'lease_generation'), 'jobs record lease generations');
+SELECT ok(to_regclass('public.parser_file_checkpoints') is not null, 'parser checkpoints exist');
+SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.parser_file_checkpoints'::regclass), 'parser checkpoints have RLS');
+SELECT ok(exists (select 1 from pg_constraint where conname = 'parser_file_checkpoints_batch_key'), 'checkpoints deduplicate by job and batch');
+SELECT ok(exists (select 1 from pg_constraint where conname = 'parser_file_checkpoints_job_fk'), 'checkpoints remain bound to the leased job owner');
+SELECT is(
+  (select count(*) from information_schema.role_table_grants where grantee = 'authenticated' and table_schema = 'public' and table_name = 'parser_file_checkpoints' and privilege_type in ('INSERT','UPDATE','DELETE')),
+  0::bigint,
+  'owners cannot directly mutate parser checkpoints'
+);
+SELECT ok(to_regprocedure('public.worker_claim_import_job(text,integer)') is not null, 'worker claim RPC exists');
+SELECT ok(to_regprocedure('public.worker_renew_import_job(uuid,uuid,integer)') is not null, 'worker renew RPC exists');
+SELECT ok(to_regprocedure('public.worker_checkpoint_import_job(uuid,uuid,uuid,uuid,integer,bigint,integer,bigint,text[])') is not null, 'worker checkpoint RPC exists');
+SELECT ok(to_regprocedure('public.worker_finish_import_job(uuid,uuid,text,text[])') is not null, 'worker finish RPC exists');
+SELECT ok(to_regprocedure('public.list_worker_raw_cleanup_candidates(integer)') is not null, 'worker cleanup candidate RPC exists');
+SELECT ok(not has_function_privilege('anon', 'public.worker_claim_import_job(text,integer)', 'EXECUTE'), 'anonymous callers cannot claim jobs');
+SELECT ok(has_function_privilege('authenticated', 'public.worker_claim_import_job(text,integer)', 'EXECUTE'), 'authenticated role can invoke claim after worker claim validation');
+SELECT is(
+  (select count(*) from pg_proc where oid in (
+    'public.worker_claim_import_job(text,integer)'::regprocedure,
+    'public.worker_renew_import_job(uuid,uuid,integer)'::regprocedure,
+    'public.worker_checkpoint_import_job(uuid,uuid,uuid,uuid,integer,bigint,integer,bigint,text[])'::regprocedure,
+    'public.worker_finish_import_job(uuid,uuid,text,text[])'::regprocedure,
+    'public.list_worker_raw_cleanup_candidates(integer)'::regprocedure
+  ) and prosecdef),
+  5::bigint,
+  'worker transitions use definer functions with internal claim checks'
+);
+SELECT ok(exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'import_jobs' and column_name = 'processed_file_count'), 'jobs expose safe file progress counts');
+SELECT ok(exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'import_jobs' and column_name = 'warning_codes'), 'jobs expose stable warning codes only');
+SELECT ok(exists (select 1 from pg_constraint where conname = 'import_jobs_max_attempts_check'), 'jobs bound retry attempts');
+SELECT ok(exists (select 1 from pg_indexes where schemaname = 'public' and indexname = 'import_runs_raw_parts_recovery_idx'), 'raw cleanup has a bounded recovery index');
+SELECT ok(exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'parser_file_checkpoints' and policyname = 'Parser checkpoints are readable by owner'), 'checkpoint reads are owner-scoped');
+SET LOCAL request.jwt.claims = '{"sub":"00000000-0000-4000-8000-000000000031"}';
+SELECT throws_ok(
+  $sql$select * from public.worker_claim_import_job('huawei-json-v1', 60)$sql$,
+  'P0001', 'worker_configuration_invalid',
+  'browser-shaped claims cannot claim a worker job'
+);
+SET LOCAL request.jwt.claims = '{"sub":"00000000-0000-4000-8000-000000000031","app_metadata":{"import_worker":"true"}}';
+SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-000000000031';
+SELECT is((SELECT count(*) FROM public.worker_claim_import_job('huawei-json-v1', 60)), 1::bigint, 'dedicated worker claim leases one queued job');
+SELECT ok((SELECT lease_generation IS NOT NULL FROM public.import_jobs WHERE id = '50000000-0000-4000-8000-000000000031'), 'claim assigns a lease generation');
+SELECT is((SELECT state FROM public.import_jobs WHERE id = '50000000-0000-4000-8000-000000000031'), 'processing', 'claim moves the job to processing');
+SELECT set_config('app.worker_generation', (SELECT lease_generation::text FROM public.import_jobs WHERE id = '50000000-0000-4000-8000-000000000031'), true);
+SELECT ok(public.worker_renew_import_job('50000000-0000-4000-8000-000000000031', current_setting('app.worker_generation')::uuid, 60), 'worker can renew its active lease');
+SELECT is((public.worker_checkpoint_import_job('50000000-0000-4000-8000-000000000031', '10000000-0000-4000-8000-000000000031', '30000000-0000-4000-8000-000000000031', current_setting('app.worker_generation')::uuid, 0, 1, 0, 2, ARRAY['route_content_dropped'])).batch_sequence, 0, 'worker checkpoint persists a safe token boundary');
+SELECT is((SELECT count(*) FROM public.parser_file_checkpoints WHERE job_id = '50000000-0000-4000-8000-000000000031'), 1::bigint, 'checkpoint replay remains one row');
+SELECT is(
+  public.worker_renew_import_job('50000000-0000-4000-8000-000000000031', '60000000-0000-4000-8000-000000000031'::uuid, 60),
+  false,
+  'stale lease generation cannot renew a job'
+);
+SELECT ok(public.worker_finish_import_job('50000000-0000-4000-8000-000000000031', current_setting('app.worker_generation')::uuid, 'completed_with_warnings', ARRAY['route_content_dropped']), 'worker completion is idempotent and warning-safe');
+SELECT is((SELECT state FROM public.import_runs WHERE id = '10000000-0000-4000-8000-000000000031'), 'completed_with_warnings', 'completion updates the owner import state');
+SELECT ok((SELECT raw_parts_recovery_until >= now() + interval '23 hours' FROM public.import_runs WHERE id = '10000000-0000-4000-8000-000000000031'), 'completion applies the 24-hour raw recovery window');
 RESET ROLE;
 
 SELECT * FROM finish();

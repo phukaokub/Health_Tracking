@@ -10,6 +10,10 @@ func TestNormalizationSnapshotDoesNotContainPayloadFields(t *testing.T) {
 	snapshot := Snapshot{Normalization: &NormalizationSnapshot{
 		NormalizedRecordCount: 2,
 		WarningCodes:          []string{"sensitive_record_excluded"},
+	}, Job: &JobSnapshot{
+		ProcessedFileCount:    1,
+		NormalizedRecordCount: 2,
+		WarningCodes:          []string{"route_content_dropped"},
 	}}
 	encoded, err := json.Marshal(snapshot)
 	if err != nil {
