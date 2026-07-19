@@ -3,6 +3,7 @@ package normalization
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -144,4 +145,41 @@ func TestParseHuaweiJSONRejectsOversizedRecord(t *testing.T) {
 	if SafeCode(err) != "json_token_too_large" {
 		t.Fatalf("expected bounded error, got %v", err)
 	}
+}
+
+type oneByteReader struct{ data []byte }
+
+func (reader *oneByteReader) Read(target []byte) (int, error) {
+	if len(reader.data) == 0 {
+		return 0, io.EOF
+	}
+	target[0] = reader.data[0]
+	reader.data = reader.data[1:]
+	return 1, nil
+}
+
+func TestParseHuaweiJSONIsChunkInvariant(t *testing.T) {
+	input := []byte(`{"records":[{"type":"heart_rate","record_id":"synthetic-chunk","started_at":"2026-01-02T03:04:05Z","unit":"bpm","value":72}]}`)
+	whole, err := ParseHuaweiJSON(bytes.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunked, err := ParseHuaweiJSON(&oneByteReader{data: append([]byte(nil), input...)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wholeJSON, _ := json.Marshal(whole)
+	chunkedJSON, _ := json.Marshal(chunked)
+	if string(wholeJSON) != string(chunkedJSON) {
+		t.Fatalf("chunking changed output: %s != %s", wholeJSON, chunkedJSON)
+	}
+}
+
+func FuzzParseHuaweiJSON(f *testing.F) {
+	f.Add([]byte(`{"records":[]}`))
+	f.Add([]byte(`{"records":[{"type":"heart_rate","record_id":"synthetic-fuzz","started_at":"2026-01-02T03:04:05Z","unit":"bpm","value":72}]}`))
+	f.Add([]byte(`{"records":[`))
+	f.Fuzz(func(t *testing.T, input []byte) {
+		_, _ = ParseHuaweiJSON(bytes.NewReader(input))
+	})
 }
