@@ -65,6 +65,21 @@ func TestParseHuaweiJSONMapsApprovedScalarMetricsAndUnits(t *testing.T) {
 	}
 }
 
+func TestParseHuaweiJSONMapsSleepWithoutRawStagePayload(t *testing.T) {
+	input := `{"records":[{"type":"sleep_session","record_id":"synthetic-sleep","started_at":"2026-01-02T00:00:00Z","ended_at":"2026-01-02T08:00:00Z","stages":[{"code":"deep","started_at":"2026-01-02T00:00:00Z","ended_at":"2026-01-02T01:00:00Z"},{"code":"light","started_at":"2026-01-02T01:00:00Z","ended_at":"2026-01-02T08:00:00Z"}]}]}`
+	result, err := ParseHuaweiJSON(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.SleepSessions) != 1 || len(result.SleepSessions[0].Stages) != 2 || result.SleepSessions[0].DurationSeconds != 28800 {
+		t.Fatalf("unexpected sleep output: %#v", result)
+	}
+	encoded, _ := json.Marshal(result)
+	if strings.Contains(string(encoded), "synthetic-sleep") {
+		t.Fatalf("raw sleep ID escaped: %s", encoded)
+	}
+}
+
 func TestParseHuaweiJSONReturnsSafeMalformedCodes(t *testing.T) {
 	for _, input := range []string{"{\"records\":[", `{"records":{}}`, `{"records":[{"type":"heart_rate","record_id":"x","started_at":"bad","unit":"bpm","value":72}]}`} {
 		_, err := ParseHuaweiJSON(strings.NewReader(input))

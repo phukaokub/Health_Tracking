@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(55);
+SELECT plan(61);
 
 SELECT ok(to_regclass('public.import_runs') is not null, 'import_runs exists');
 SELECT ok(to_regclass('public.import_manifest_pages') is not null, 'import_manifest_pages exists');
@@ -9,6 +9,20 @@ SELECT ok(to_regclass('public.import_jobs') is not null, 'import_jobs exists');
 SELECT ok(to_regclass('public.import_errors') is not null, 'import_errors exists');
 SELECT ok(to_regclass('public.health_samples') is not null, 'health_samples exists');
 SELECT ok(to_regclass('public.normalization_provenance') is not null, 'normalization_provenance exists');
+SELECT ok(to_regclass('public.sleep_sessions') is not null, 'sleep_sessions exists');
+SELECT ok(to_regclass('public.sleep_stages') is not null, 'sleep_stages exists');
+SELECT is(
+  (SELECT count(*) FROM pg_class WHERE oid IN ('public.sleep_sessions'::regclass, 'public.sleep_stages'::regclass) AND relrowsecurity),
+  2::bigint,
+  'sleep tables have RLS enabled'
+);
+SELECT ok(exists (select 1 from pg_constraint where conname = 'sleep_sessions_owner_dedupe'), 'sleep sessions deduplicate per owner');
+SELECT ok(exists (select 1 from pg_constraint where conname = 'sleep_stages_owner_dedupe'), 'sleep stages deduplicate per owner');
+SELECT is(
+  (select count(*) from information_schema.role_table_grants where grantee = 'authenticated' and table_schema = 'public' and table_name in ('sleep_sessions','sleep_stages') and privilege_type in ('INSERT','UPDATE','DELETE')),
+  0::bigint,
+  'authenticated users have no direct sleep writes'
+);
 SELECT ok(
   exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'normalization_provenance' and column_name = 'source_unit'),
   'provenance retains the source unit code without raw payload retention'
