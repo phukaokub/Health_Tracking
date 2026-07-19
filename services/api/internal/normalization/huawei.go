@@ -10,9 +10,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
+)
+
+var (
+	motionMapPattern  = regexp.MustCompile(`"(?:paceMap|paceMapNative|partTimeMap)"\s*:\s*\{[^{}]*\}`)
+	decimalKeyPattern = regexp.MustCompile(`(^|[,\s{])(-?[0-9]+\.[0-9]+)(\s*:)`)
 )
 
 const (
@@ -370,4 +376,21 @@ func SafeCode(err error) string {
 		return safe.Code
 	}
 	return fmt.Sprintf("%s", "source_schema_unsupported")
+}
+
+// RepairMotionMapDecimalKeys performs the only permitted malformed-JSON repair:
+// quoting decimal object keys inside the three approved motion-map fields.
+func RepairMotionMapDecimalKeys(input []byte) ([]byte, error) {
+	matched := false
+	repaired := motionMapPattern.ReplaceAllFunc(input, func(segment []byte) []byte {
+		matched = true
+		return decimalKeyPattern.ReplaceAll(segment, []byte(`${1}"${2}"${3}`))
+	})
+	if !matched {
+		return nil, &SafeError{Code: "motion_repair_out_of_scope"}
+	}
+	if !json.Valid(repaired) {
+		return nil, &SafeError{Code: "motion_json_invalid"}
+	}
+	return repaired, nil
 }

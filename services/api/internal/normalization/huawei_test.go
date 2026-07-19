@@ -110,6 +110,21 @@ func TestParseHuaweiJSONMapsWorkoutSummaryWithoutRoute(t *testing.T) {
 	}
 }
 
+func TestRepairMotionMapDecimalKeysIsNarrowAndStrict(t *testing.T) {
+	repaired, err := RepairMotionMapDecimalKeys([]byte(`{"paceMap":{1.5:12,"2.0":20}}`))
+	if err != nil || string(repaired) != `{"paceMap":{"1.5":12,"2.0":20}}` {
+		t.Fatalf("unexpected repair: %q %v", repaired, err)
+	}
+	_, err = RepairMotionMapDecimalKeys([]byte(`{"other":{1.5:12}}`))
+	if SafeCode(err) != "motion_repair_out_of_scope" {
+		t.Fatalf("expected narrow failure, got %v", err)
+	}
+	_, err = RepairMotionMapDecimalKeys([]byte(`{"paceMap":{1.5:}}`))
+	if SafeCode(err) != "motion_json_invalid" {
+		t.Fatalf("expected strict validation failure, got %v", err)
+	}
+}
+
 func TestParseHuaweiJSONReturnsSafeMalformedCodes(t *testing.T) {
 	for _, input := range []string{"{\"records\":[", `{"records":{}}`, `{"records":[{"type":"heart_rate","record_id":"x","started_at":"bad","unit":"bpm","value":72}]}`} {
 		_, err := ParseHuaweiJSON(strings.NewReader(input))
