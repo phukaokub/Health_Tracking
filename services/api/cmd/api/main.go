@@ -53,6 +53,14 @@ func main() {
 	importHandler := httpapi.RequireUser(verifier, httpapi.NewImportHandler(importClient))
 	mux.Handle("/api/v1/imports", importHandler)
 	mux.Handle("/api/v1/imports/", importHandler)
+	mux.Handle("/api/v1/worker/trigger", httpapi.NewWorkerTriggerHandler(
+		os.Getenv("WORKER_TRIGGER_SECRET"),
+		workerTriggerService{
+			client:   importClient,
+			email:    os.Getenv("SUPABASE_WORKER_IDENTITY"),
+			password: os.Getenv("SUPABASE_WORKER_PASSWORD"),
+		},
+	))
 	webOrigin := os.Getenv("WEB_ORIGIN")
 	if webOrigin == "" {
 		webOrigin = "http://localhost:3000"
@@ -63,7 +71,7 @@ func main() {
 		Handler:           requestID(cors(webOrigin, mux)),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
-		WriteTimeout:      10 * time.Second,
+		WriteTimeout:      300 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 

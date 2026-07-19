@@ -34,4 +34,21 @@ go run ./cmd/api
 
 The public health endpoint is `http://localhost:8080/api/v1/health`. Protected routes reject missing/invalid tokens. Import routes never accept an owner ID; the forwarded verified token supplies `auth.uid()` and owner-scoped RLS remains the persistence boundary.
 
+## Manual staging worker trigger
+
+The internal `POST /api/v1/worker/trigger` route is protected by the server-only
+`X-Worker-Trigger` value and authenticates the dedicated Supabase worker
+identity. Its current staging-safe mode is `synthetic_benchmark`; it generates
+only synthetic Huawei-shaped JSON, measures deterministic parse/recovery
+behavior, and rejects real import execution until the Storage and canonical
+persistence adapter is separately proven.
+
+Example request (substitute the secret locally; never paste it into source or
+logs):
+
+```powershell
+$headers = @{ "X-Worker-Trigger" = $env:WORKER_TRIGGER_SECRET }
+Invoke-WebRequest -Method Post -Uri "http://localhost:8080/api/v1/worker/trigger" -Headers $headers -ContentType "application/json" -Body '{"mode":"synthetic_benchmark","target_bytes":75497472}'
+```
+
 See [`../../docs/ENGINEERING_WORKFLOW.md`](../../docs/ENGINEERING_WORKFLOW.md) for API, migration, logging, and verification controls.

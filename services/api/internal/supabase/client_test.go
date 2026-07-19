@@ -97,3 +97,25 @@ func TestCleanupImportsListsOnlyCallerExpiredRunsThenDeletesStorageFirst(t *test
 		t.Fatalf("unexpected cleanup calls: %#v", calls)
 	}
 }
+
+func TestAuthenticateWorkerUsesPublishableKeyAndRequiresAppMetadataClaim(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/auth/v1/token" || r.URL.Query().Get("grant_type") != "password" {
+			t.Fatalf("unexpected auth path: %s", r.URL.String())
+		}
+		if r.Header.Get("apikey") != "publishable-key" || r.Header.Get("Authorization") != "Bearer publishable-key" {
+			t.Fatal("worker auth did not use the publishable key")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"redacted","user":{"app_metadata":{"import_worker":true}}}`))
+	}))
+	defer server.Close()
+	client, err := NewClient(server.URL, "publishable-key", server.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, err := client.AuthenticateWorker(context.Background(), "worker@staging.invalid", "synthetic-password")
+	if err != nil || !identity.ImportWorker {
+		t.Fatalf("worker identity was not accepted: %#v, %v", identity, err)
+	}
+}

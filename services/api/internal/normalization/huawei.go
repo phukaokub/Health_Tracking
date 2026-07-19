@@ -22,8 +22,11 @@ var (
 )
 
 const (
-	ParserVersion  = "huawei-json-v1"
-	MaxInputBytes  = 20 * 1024 * 1024
+	ParserVersion = "huawei-json-v1"
+	// A logical file may be larger than one Storage part. The worker assembles
+	// ordered parts and still bounds each part at 20 MiB before calling the
+	// parser. Keep the logical-file cap aligned with the staging benchmark.
+	MaxInputBytes  = 72 * 1024 * 1024
 	MaxRecordBytes = 1 * 1024 * 1024
 	MaxRecordCount = 10000
 	SourceFamily   = "huawei_health_json"
