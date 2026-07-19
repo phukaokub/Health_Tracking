@@ -95,6 +95,21 @@ func TestParseHuaweiJSONMapsActivityWithoutRoute(t *testing.T) {
 	}
 }
 
+func TestParseHuaweiJSONMapsWorkoutSummaryWithoutRoute(t *testing.T) {
+	input := `{"records":[{"type":"workout_summary","record_id":"synthetic-workout","workout_type":"running","started_at":"2026-01-02T00:00:00Z","ended_at":"2026-01-02T00:30:00Z","distance_metres":5000,"energy_kilocalories":300,"route":[{"lat":0,"lon":0}]}]}`
+	result, err := ParseHuaweiJSON(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Workouts) != 1 || result.Workouts[0].DistanceMetres != "5000" || result.Workouts[0].EnergyKilocalories != "300" {
+		t.Fatalf("unexpected workout: %#v", result)
+	}
+	encoded, _ := json.Marshal(result)
+	if strings.Contains(string(encoded), "route") || strings.Contains(string(encoded), "synthetic-workout") {
+		t.Fatalf("raw workout content escaped: %s", encoded)
+	}
+}
+
 func TestParseHuaweiJSONReturnsSafeMalformedCodes(t *testing.T) {
 	for _, input := range []string{"{\"records\":[", `{"records":{}}`, `{"records":[{"type":"heart_rate","record_id":"x","started_at":"bad","unit":"bpm","value":72}]}`} {
 		_, err := ParseHuaweiJSON(strings.NewReader(input))

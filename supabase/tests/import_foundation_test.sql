@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(64);
+SELECT plan(67);
 
 SELECT ok(to_regclass('public.import_runs') is not null, 'import_runs exists');
 SELECT ok(to_regclass('public.import_manifest_pages') is not null, 'import_manifest_pages exists');
@@ -517,6 +517,9 @@ SELECT is(
 SELECT ok(to_regclass('public.activities') is not null, 'activities exists');
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.activities'::regclass), 'activities has RLS');
 SELECT ok(exists (select 1 from pg_constraint where conname = 'activities_owner_dedupe'), 'activities deduplicate per owner');
+SELECT ok(to_regclass('public.workout_sessions') is not null, 'workout_sessions exists');
+SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.workout_sessions'::regclass), 'workout sessions have RLS');
+SELECT ok(exists (select 1 from pg_constraint where conname = 'workout_sessions_owner_dedupe'), 'workout sessions deduplicate per owner');
 RESET ROLE;
 
 SELECT * FROM finish();
