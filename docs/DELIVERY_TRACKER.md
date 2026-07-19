@@ -7,9 +7,9 @@ This is the living status document. Update it at each meaningful handoff, accept
 ## Current release
 
 - Release target: private non-clinical V1.
-- Current gate: Step 4 first local Huawei JSON normalization vertical slice. Step 3's hosted synthetic two-user, quota/outage, and cleanup suite remains explicitly deferred and is out of scope for this slice.
-- Current branch: `codex/step-4-huawei-normalization-slice`.
-- Active milestone: Step 4 local parser/schema/API foundation; no hosted worker, provider, or secret configuration is authorized. Supabase project `Health_Tracking` (`gdccossstmochzfgjqxz`, `ap-southeast-1`) remains the accepted shared staging target.
+- Current gate: Step 4 approved scalar health-metric mapping slice. Step 3's hosted synthetic two-user, quota/outage, and cleanup suite remains explicitly deferred and is out of scope.
+- Current branch: `codex/step-4-scalar-health-mappings`.
+- Active milestone: Step 4 local scalar parser mappings and unit provenance; no hosted worker, provider, or secret configuration is authorized. Supabase project `Health_Tracking` (`gdccossstmochzfgjqxz`, `ap-southeast-1`) remains the accepted shared staging target.
 - Active Step 4 plan: [`plans/0004-huawei-json-normalization.md`](plans/0004-huawei-json-normalization.md).
 - The Go foreground access decision is accepted in [`decisions/0002-foreground-supabase-access.md`](decisions/0002-foreground-supabase-access.md). Preview isolation is required before hosted verification (3I).
 - Production status: not provisioned and not approved for user data.
@@ -22,7 +22,7 @@ This is the living status document. Update it at each meaningful handoff, accept
 | 1 | Local Next.js/Go vertical slice | Done on `main` | Web/API baseline merged in PR #1 |
 | 2 | Supabase Auth, profiles, SSR sessions, JWT verification, and RLS | Done | Local email via Mailpit and Google login verified; PR #2 merged after Documentation, Web, and API checks passed |
 | 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | Handoff PR #16 open | User accepted local browser evidence plus hosted Google Auth and authenticated upload-to-queue. Hosted synthetic two-user RLS, quota/outage, and cleanup smoke is deferred and remains a recorded operational risk |
-| 4 | Streaming Huawei JSON parsing, normalization, provenance, and dedupe | First local slice in progress | Sanitized fixture, pure parser, canonical scalar-schema/API contract, deterministic dedupe/provenance, and local privacy/RLS tests; hosted worker remains gated by ADR 0005 and matrix approval |
+| 4 | Streaming Huawei JSON parsing, normalization, provenance, and dedupe | Scalar mapping slice in progress | First local slice accepted and merged in PR #17; approved scalar mappings and unit provenance are in progress. ECG/RRI and GPS remain discarded; hosted worker remains gated by ADR 0005 |
 | 5 | Legacy XLS allowlisted backfill and precedence | Planned | Parser library spike and sanitized fixture acceptance |
 | 6 | First summary, goals, reports, and dashboard | Planned | Normalized data contracts and UX acceptance |
 | 7 | Explainable scores, trends, deterministic suggestions, and safety copy | Planned | Metric coverage and threshold decisions |
@@ -117,6 +117,7 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | 2026-07-17 | Hosted provider audit | Supabase `Health_Tracking` is active/healthy in `ap-southeast-1`; migration list is empty; Security Advisor reports anon/authenticated execution of `public.rls_auto_enable()`; Vercel team has zero projects | Candidate only; no keys read and no provider mutation performed |
 | 2026-07-19 | Hosted staging setup | Canonical repository migrations applied and migration history aligned; public execution revoked for `rls_auto_enable()` and profile trigger helper; all application tables report RLS enabled; Security Advisor pre-existing warning cleared | Green; seven intentional authenticated-only definer RPC notices remain |
 | 2026-07-19 | Hosted preview deployment | Vercel projects `health-tracking-api-staging` and `health-tracking-web-staging` configured with preview-only Supabase/API values; API health 200 and web 200; unauthenticated `/me`, `/imports`, and malformed import route return 401 | Green; no production project or user data |
+| 2026-07-19 | Step 4 first local slice | PR #17 (`a2e904f`) added sanitized fixture, pure streaming parser, scalar schema/API contract, deterministic dedupe/provenance, and local privacy/RLS tests | User accepted; ECG/RRI and GPS remain discarded |
 | 2026-07-19 | Hosted synthetic smoke attempt | Two synthetic signup attempts used reserved/non-personal domains; provider rejected the first as invalid (400) and then rate-limited requests (429). Bounded unauthenticated API checks remain fail-closed; cleanup query reports zero expired candidates | Authenticated upload, cross-user denial, quota, and authenticated cleanup evidence blocked by Auth rate limit; no tokens or payloads recorded |
 | 2026-07-19 | Hosted staging PR | PR #14 opened from `codex/step-3-hosted-staging` with migration and non-sensitive evidence; Documentation, Web, and API checks green | Supabase schema/RLS check pending; do not merge until required CI completes |
 | 2026-07-19 | Step 3 final acceptance | Local synthetic browser suite passed upload pause/resume, refresh/reselect, owner denial, cancel, and cleanup; user completed hosted Google Auth and authenticated upload-to-queue; aggregate staging state reports one queued import | User accepted Step 3 handoff; hosted synthetic two-user RLS, quota/outage, and cleanup smoke is deferred, not passed |

@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(53);
+SELECT plan(55);
 
 SELECT ok(to_regclass('public.import_runs') is not null, 'import_runs exists');
 SELECT ok(to_regclass('public.import_manifest_pages') is not null, 'import_manifest_pages exists');
@@ -9,6 +9,14 @@ SELECT ok(to_regclass('public.import_jobs') is not null, 'import_jobs exists');
 SELECT ok(to_regclass('public.import_errors') is not null, 'import_errors exists');
 SELECT ok(to_regclass('public.health_samples') is not null, 'health_samples exists');
 SELECT ok(to_regclass('public.normalization_provenance') is not null, 'normalization_provenance exists');
+SELECT ok(
+  exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'normalization_provenance' and column_name = 'source_unit'),
+  'provenance retains the source unit code without raw payload retention'
+);
+SELECT ok(
+  exists (select 1 from pg_constraint where conname = 'health_samples_unit_check'),
+  'health sample canonical units are constrained'
+);
 
 SELECT is(
   (SELECT count(*) FROM pg_class WHERE oid IN (

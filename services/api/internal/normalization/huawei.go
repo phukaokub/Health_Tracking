@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -31,15 +32,17 @@ type Warning struct {
 }
 
 type Sample struct {
-	SourceFamily     string    `json:"source_family"`
-	SourceType       string    `json:"source_type"`
-	SourceRecordHash string    `json:"source_record_hash"`
-	StartedAt        time.Time `json:"started_at"`
-	EndedAt          time.Time `json:"ended_at"`
-	Unit             string    `json:"unit"`
-	Value            string    `json:"value"`
-	DedupeKey        string    `json:"dedupe_key"`
-	ParserVersion    string    `json:"parser_version"`
+	SourceFamily          string    `json:"source_family"`
+	SourceType            string    `json:"source_type"`
+	SourceRecordHash      string    `json:"source_record_hash"`
+	StartedAt             time.Time `json:"started_at"`
+	EndedAt               time.Time `json:"ended_at"`
+	Unit                  string    `json:"unit"`
+	SourceUnit            string    `json:"source_unit"`
+	UnitConversionVersion string    `json:"unit_conversion_version"`
+	Value                 string    `json:"value"`
+	DedupeKey             string    `json:"dedupe_key"`
+	ParserVersion         string    `json:"parser_version"`
 }
 
 type Result struct {
@@ -129,12 +132,11 @@ func normalizeRecord(record sourceRecord) (*Sample, *Warning, error) {
 	if record.Type == "ecg" || record.Type == "workout_route" {
 		return nil, &Warning{Code: "sensitive_record_excluded"}, nil
 	}
-	units := map[string]string{"heart_rate": "bpm", "steps": "count", "distance": "metres", "active_duration": "seconds"}
-	wantUnit, supported := units[record.Type]
+	mapping, supported := scalarMappings[record.Type]
 	if !supported {
 		return nil, &Warning{Code: "metric_mapping_unknown"}, nil
 	}
-	if record.Unit != wantUnit || record.RecordID == "" {
+	if record.RecordID == "" {
 		return nil, nil, &SafeError{Code: "unit_unsupported"}
 	}
 	start, err := time.Parse(time.RFC3339, record.StartedAt)
@@ -148,13 +150,43 @@ func normalizeRecord(record sourceRecord) (*Sample, *Warning, error) {
 			return nil, nil, &SafeError{Code: "timestamp_invalid"}
 		}
 	}
-	value := strings.TrimSpace(string(record.Value))
-	if value == "" || strings.HasPrefix(value, "\"") {
+	value, err := strconv.ParseFloat(strings.TrimSpace(string(record.Value)), 64)
+	if err != nil {
 		return nil, nil, &SafeError{Code: "metric_mapping_unknown"}
 	}
+	value, ok := mapping.convert(record.Unit, value)
+	if !ok {
+		return nil, nil, &SafeError{Code: "unit_unsupported"}
+	}
+	canonicalValue := strconv.FormatFloat(value, 'f', -1, 64)
 	recordHash := hash(record.RecordID)
-	identity := strings.Join([]string{"v1", SourceFamily, record.Type, recordHash, start.UTC().Format(time.RFC3339Nano), end.UTC().Format(time.RFC3339Nano), wantUnit, value}, "|")
-	return &Sample{SourceFamily: SourceFamily, SourceType: record.Type, SourceRecordHash: recordHash, StartedAt: start.UTC(), EndedAt: end.UTC(), Unit: wantUnit, Value: value, DedupeKey: hash(identity), ParserVersion: ParserVersion}, nil, nil
+	identity := strings.Join([]string{"v1", SourceFamily, record.Type, recordHash, start.UTC().Format(time.RFC3339Nano), end.UTC().Format(time.RFC3339Nano), mapping.unit, canonicalValue}, "|")
+	return &Sample{SourceFamily: SourceFamily, SourceType: record.Type, SourceRecordHash: recordHash, StartedAt: start.UTC(), EndedAt: end.UTC(), Unit: mapping.unit, SourceUnit: record.Unit, UnitConversionVersion: "v1", Value: canonicalValue, DedupeKey: hash(identity), ParserVersion: ParserVersion}, nil, nil
+}
+
+type scalarMapping struct {
+	unit        string
+	conversions map[string]func(float64) float64
+}
+
+func (mapping scalarMapping) convert(unit string, value float64) (float64, bool) {
+	conversion, ok := mapping.conversions[unit]
+	if !ok || value < 0 {
+		return 0, false
+	}
+	return conversion(value), true
+}
+func same(value float64) float64 { return value }
+
+var scalarMappings = map[string]scalarMapping{
+	"heart_rate": {"bpm", map[string]func(float64) float64{"bpm": same}}, "resting_heart_rate": {"bpm", map[string]func(float64) float64{"bpm": same}},
+	"hrv": {"milliseconds", map[string]func(float64) float64{"ms": same}}, "stress": {"source_score", map[string]func(float64) float64{"huawei_score": same}},
+	"skin_temperature": {"degrees_celsius", map[string]func(float64) float64{"celsius": same, "fahrenheit": func(v float64) float64 { return (v - 32) * 5 / 9 }}},
+	"spo2":             {"percent", map[string]func(float64) float64{"percent": same, "fraction": func(v float64) float64 { return v * 100 }}},
+	"steps":            {"count", map[string]func(float64) float64{"count": same}}, "calories": {"kilocalories", map[string]func(float64) float64{"kcal": same, "kj": func(v float64) float64 { return v / 4.184 }}},
+	"distance": {"metres", map[string]func(float64) float64{"metres": same, "kilometres": func(v float64) float64 { return v * 1000 }}}, "floors": {"count", map[string]func(float64) float64{"count": same}},
+	"active_duration":    {"seconds", map[string]func(float64) float64{"seconds": same, "minutes": func(v float64) float64 { return v * 60 }, "milliseconds": func(v float64) float64 { return v / 1000 }}},
+	"exercise_intensity": {"source_score", map[string]func(float64) float64{"huawei_score": same}},
 }
 
 func hash(value string) string {
