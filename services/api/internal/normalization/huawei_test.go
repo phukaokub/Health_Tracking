@@ -48,6 +48,23 @@ func TestParseHuaweiJSONCollapsesDuplicateIdentity(t *testing.T) {
 	}
 }
 
+func TestParseHuaweiJSONMapsApprovedScalarMetricsAndUnits(t *testing.T) {
+	input := `{"records":[{"type":"resting_heart_rate","record_id":"rhr","started_at":"2026-01-02T00:00:00Z","unit":"bpm","value":60},{"type":"hrv","record_id":"hrv","started_at":"2026-01-02T00:00:00Z","unit":"ms","value":24},{"type":"skin_temperature","record_id":"temp","started_at":"2026-01-02T00:00:00Z","unit":"fahrenheit","value":98.6},{"type":"spo2","record_id":"spo2","started_at":"2026-01-02T00:00:00Z","unit":"fraction","value":0.98},{"type":"calories","record_id":"energy","started_at":"2026-01-02T00:00:00Z","unit":"kj","value":4.184}]}`
+	result, err := ParseHuaweiJSON(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Samples) != 5 {
+		t.Fatalf("want five samples, got %#v", result)
+	}
+	if result.Samples[2].Unit != "degrees_celsius" || result.Samples[2].Value != "37" || result.Samples[3].Value != "98" || result.Samples[4].Unit != "kilocalories" || result.Samples[4].Value != "1" {
+		t.Fatalf("unexpected conversions: %#v", result.Samples)
+	}
+	if result.Samples[2].SourceUnit != "fahrenheit" || result.Samples[2].UnitConversionVersion != "v1" {
+		t.Fatal("source unit provenance missing")
+	}
+}
+
 func TestParseHuaweiJSONReturnsSafeMalformedCodes(t *testing.T) {
 	for _, input := range []string{"{\"records\":[", `{"records":{}}`, `{"records":[{"type":"heart_rate","record_id":"x","started_at":"bad","unit":"bpm","value":72}]}`} {
 		_, err := ParseHuaweiJSON(strings.NewReader(input))
