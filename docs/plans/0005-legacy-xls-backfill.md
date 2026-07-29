@@ -5,7 +5,7 @@
 - Change ID: 0005
 - Milestone/work package: Step 5 - Legacy XLS allowlisted backfill
 - Owner: repository maintainers
-- Status: in review
+- Status: accepted; merge pending
 - Baseline commit: `57cae63`
 - Branch: `codex/step5-legacy-xls-backfill`
 - Related issue/PR/ADR: PR pending
@@ -86,6 +86,7 @@ mutation remain excluded.
 - Database: clean local reset and all 148 pgTAP assertions passed; schema lint
   reported no errors.
 - Documentation checks passed. No hosted or production resource was changed.
+- PR #62 required CI passed: documentation, API, web, and Supabase schema/RLS/browser.
 
 ## Change history
 

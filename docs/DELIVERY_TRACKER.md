@@ -7,7 +7,7 @@ This is the living status document. Update it at each meaningful handoff, accept
 ## Current release
 
 - Release target: private non-clinical V1.
-- Current gate: Step 5 implementation and local verification are complete; one PR and required CI are pending. Step 3's hosted synthetic two-user, quota/outage, and cleanup suite remains explicitly deferred and is out of scope.
+- Current gate: Step 5 implementation is accepted in PR #62; local verification and all required CI are green, with merge pending. Step 3's hosted synthetic two-user, quota/outage, and cleanup suite remains explicitly deferred and is out of scope.
 - Current branch: `codex/step5-legacy-xls-backfill`.
 - Active milestone: Step 5 now has exact-sheet BIFF8 parsing, deterministic daily identities, JSON-wins precedence, owner-scoped quality counts, and privacy/malformed-input coverage. The clean local matrix passed (Go, web build/unit, 148 pgTAP assertions, schema lint, and 2 browser import tests). Step 4 remains complete; automatic scheduling, production resources, ECG/RRI, GPS/routes, and later milestones remain excluded.
 - Active Step 5 plan: [`plans/0005-legacy-xls-backfill.md`](plans/0005-legacy-xls-backfill.md).
