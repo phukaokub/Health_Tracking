@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(103);
+SELECT plan(135);
 
 SELECT ok(to_regclass('public.import_runs') is not null, 'import_runs exists');
 SELECT ok(to_regclass('public.import_manifest_pages') is not null, 'import_manifest_pages exists');
@@ -217,6 +217,31 @@ INSERT INTO public.import_files (
   'synthetic-json', 'application/json', 'verified', 1,
   'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 );
+INSERT INTO public.import_files (
+  id, import_id, user_id, client_file_id, source_reference_hash, source_family,
+  content_kind, inclusion_state, logical_bytes, content_sha256
+) VALUES (
+  '30000000-0000-4000-8000-000000000032',
+  '10000000-0000-4000-8000-000000000031',
+  '00000000-0000-4000-8000-000000000031',
+  '40000000-0000-4000-8000-000000000032',
+  'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa32',
+  'synthetic-json', 'application/json', 'planned', 1,
+  'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb32'
+);
+INSERT INTO public.import_file_parts (
+  id, file_id, import_id, user_id, part_index, byte_offset, byte_length,
+  content_sha256, object_path, state
+) VALUES (
+  '35000000-0000-4000-8000-000000000031',
+  '30000000-0000-4000-8000-000000000031',
+  '10000000-0000-4000-8000-000000000031',
+  '00000000-0000-4000-8000-000000000031',
+  0, 0, 1,
+  'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  'imports/00000000-0000-4000-8000-000000000031/10000000-0000-4000-8000-000000000031/30000000-0000-4000-8000-000000000031/part-0',
+  'verified'
+);
 INSERT INTO public.health_samples (
   user_id, import_id, import_file_id, dedupe_key, source_family, source_type,
   source_record_hash, started_at, ended_at, unit, value, parser_version
@@ -393,6 +418,180 @@ SELECT throws_ok(
   'another user cannot begin import deletion'
 );
 
+RESET ROLE;
+INSERT INTO public.health_samples (
+  id, user_id, import_id, import_file_id, dedupe_key, source_family,
+  source_type, source_record_hash, started_at, ended_at, unit, value,
+  parser_version
+)
+SELECT
+  '71000000-0000-4000-8000-000000000031',
+  '00000000-0000-4000-8000-000000000031',
+  current_setting('app.test_import_id')::uuid,
+  file.id,
+  repeat('1', 64),
+  'huawei_health_json',
+  'heart_rate',
+  repeat('2', 64),
+  '2026-01-02T00:00:00Z',
+  '2026-01-02T00:01:00Z',
+  'bpm',
+  72,
+  'huawei-json-v1'
+FROM public.import_files file
+WHERE file.import_id = current_setting('app.test_import_id')::uuid;
+INSERT INTO public.normalization_provenance (
+  id, user_id, import_id, import_file_id, source_family,
+  source_record_hash, parser_version, timezone_resolution
+)
+SELECT
+  '72000000-0000-4000-8000-000000000031',
+  '00000000-0000-4000-8000-000000000031',
+  current_setting('app.test_import_id')::uuid,
+  file.id,
+  'huawei_health_json',
+  repeat('2', 64),
+  'huawei-json-v1',
+  'explicit_offset'
+FROM public.import_files file
+WHERE file.import_id = current_setting('app.test_import_id')::uuid;
+INSERT INTO public.sleep_sessions (
+  id, user_id, import_id, import_file_id, dedupe_key, source_record_hash,
+  started_at, ended_at, duration_seconds, parser_version
+)
+SELECT
+  '73000000-0000-4000-8000-000000000031',
+  '00000000-0000-4000-8000-000000000031',
+  current_setting('app.test_import_id')::uuid,
+  file.id,
+  repeat('3', 64),
+  repeat('4', 64),
+  '2026-01-02T00:00:00Z',
+  '2026-01-02T01:00:00Z',
+  3600,
+  'huawei-json-v1'
+FROM public.import_files file
+WHERE file.import_id = current_setting('app.test_import_id')::uuid;
+INSERT INTO public.sleep_stages (
+  id, user_id, sleep_session_id, dedupe_key, stage_code, started_at, ended_at
+) VALUES (
+  '74000000-0000-4000-8000-000000000031',
+  '00000000-0000-4000-8000-000000000031',
+  '73000000-0000-4000-8000-000000000031',
+  repeat('5', 64),
+  'deep',
+  '2026-01-02T00:00:00Z',
+  '2026-01-02T01:00:00Z'
+);
+INSERT INTO public.activities (
+  id, user_id, import_id, import_file_id, dedupe_key, source_record_hash,
+  activity_type, started_at, ended_at, duration_seconds, parser_version
+)
+SELECT
+  '75000000-0000-4000-8000-000000000031',
+  '00000000-0000-4000-8000-000000000031',
+  current_setting('app.test_import_id')::uuid,
+  file.id,
+  repeat('6', 64),
+  repeat('7', 64),
+  'walking',
+  '2026-01-02T00:00:00Z',
+  '2026-01-02T00:10:00Z',
+  600,
+  'huawei-json-v1'
+FROM public.import_files file
+WHERE file.import_id = current_setting('app.test_import_id')::uuid;
+INSERT INTO public.workout_sessions (
+  id, user_id, import_id, import_file_id, dedupe_key, source_record_hash,
+  workout_type, started_at, ended_at, duration_seconds, parser_version
+)
+SELECT
+  '76000000-0000-4000-8000-000000000031',
+  '00000000-0000-4000-8000-000000000031',
+  current_setting('app.test_import_id')::uuid,
+  file.id,
+  repeat('8', 64),
+  repeat('9', 64),
+  'running',
+  '2026-01-02T00:00:00Z',
+  '2026-01-02T00:30:00Z',
+  1800,
+  'huawei-json-v1'
+FROM public.import_files file
+WHERE file.import_id = current_setting('app.test_import_id')::uuid;
+INSERT INTO public.import_jobs (
+  id, import_id, user_id, state, lease_generation, parser_version
+) VALUES (
+  '77000000-0000-4000-8000-000000000031',
+  current_setting('app.test_import_id')::uuid,
+  '00000000-0000-4000-8000-000000000031',
+  'queued',
+  '79000000-0000-4000-8000-000000000031',
+  'huawei-json-v1'
+);
+INSERT INTO public.parser_file_checkpoints (
+  id, job_id, import_id, import_file_id, user_id, part_index, byte_offset,
+  batch_sequence, parser_version, lease_generation, normalized_record_count
+)
+SELECT
+  '78000000-0000-4000-8000-000000000031',
+  '77000000-0000-4000-8000-000000000031',
+  current_setting('app.test_import_id')::uuid,
+  file.id,
+  '00000000-0000-4000-8000-000000000031',
+  0,
+  1,
+  0,
+  'huawei-json-v1',
+  '79000000-0000-4000-8000-000000000031',
+  1
+FROM public.import_files file
+WHERE file.import_id = current_setting('app.test_import_id')::uuid;
+INSERT INTO public.parser_file_completions (
+  job_id, import_id, import_file_id, user_id, normalized_record_count
+)
+SELECT
+  '77000000-0000-4000-8000-000000000031',
+  current_setting('app.test_import_id')::uuid,
+  file.id,
+  '00000000-0000-4000-8000-000000000031',
+  1
+FROM public.import_files file
+WHERE file.import_id = current_setting('app.test_import_id')::uuid;
+INSERT INTO public.import_errors (
+  id, import_id, user_id, code, retryable
+) VALUES (
+  '7a000000-0000-4000-8000-000000000031',
+  current_setting('app.test_import_id')::uuid,
+  '00000000-0000-4000-8000-000000000031',
+  'source_object_unavailable',
+  true
+);
+SAVEPOINT storage_guard_test;
+INSERT INTO storage.objects (bucket_id, name, owner_id)
+SELECT
+  'health-imports',
+  part.object_path,
+  part.user_id::text
+FROM public.import_file_parts part
+WHERE part.import_id = current_setting('app.test_import_id')::uuid;
+
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-000000000031';
+SELECT throws_ok(
+  format(
+    'select public.finish_import_delete(%L::uuid)',
+    current_setting('app.test_import_id')
+  ),
+  'P0001',
+  'storage_objects_remain',
+  'owner cannot finalize deletion while a private source object remains'
+);
+ROLLBACK TO SAVEPOINT storage_guard_test;
+RELEASE SAVEPOINT storage_guard_test;
+RESET ROLE;
+
+SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-000000000031';
 SELECT is(
   public.begin_import_delete(current_setting('app.test_import_id')::uuid)->>'state',
@@ -404,6 +603,51 @@ SELECT is(
   'deleted',
   'owner can finish import cleanup after Storage deletion'
 );
+RESET ROLE;
+SELECT is(
+  (
+    select count(*)
+    from (
+      select 1 from public.health_samples where import_id = current_setting('app.test_import_id')::uuid
+      union all
+      select 1 from public.normalization_provenance where import_id = current_setting('app.test_import_id')::uuid
+      union all
+      select 1 from public.sleep_sessions where import_id = current_setting('app.test_import_id')::uuid
+      union all
+      select 1 from public.sleep_stages where sleep_session_id = '73000000-0000-4000-8000-000000000031'
+      union all
+      select 1 from public.activities where import_id = current_setting('app.test_import_id')::uuid
+      union all
+      select 1 from public.workout_sessions where import_id = current_setting('app.test_import_id')::uuid
+    ) retained
+  ),
+  0::bigint,
+  'owner import deletion purges all canonical and provenance rows'
+);
+SELECT is(
+  (
+    select count(*)
+    from (
+      select 1 from public.import_manifest_pages where import_id = current_setting('app.test_import_id')::uuid
+      union all
+      select 1 from public.import_files where import_id = current_setting('app.test_import_id')::uuid
+      union all
+      select 1 from public.import_file_parts where import_id = current_setting('app.test_import_id')::uuid
+      union all
+      select 1 from public.import_jobs where import_id = current_setting('app.test_import_id')::uuid
+      union all
+      select 1 from public.import_errors where import_id = current_setting('app.test_import_id')::uuid
+      union all
+      select 1 from public.parser_file_checkpoints where import_id = current_setting('app.test_import_id')::uuid
+      union all
+      select 1 from public.parser_file_completions where import_id = current_setting('app.test_import_id')::uuid
+    ) retained
+  ),
+  0::bigint,
+  'owner import deletion purges source, error, job, and checkpoint metadata'
+);
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-000000000031';
 
 SELECT is(
   jsonb_array_length(public.create_import_manifest($manifest$
@@ -526,6 +770,15 @@ SELECT ok(exists (select 1 from information_schema.columns where table_schema = 
 SELECT ok(exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'import_jobs' and column_name = 'lease_generation'), 'jobs record lease generations');
 SELECT ok(to_regclass('public.parser_file_checkpoints') is not null, 'parser checkpoints exist');
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.parser_file_checkpoints'::regclass), 'parser checkpoints have RLS');
+SELECT ok(to_regclass('public.parser_file_completions') is not null, 'parser file completions exist');
+SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.parser_file_completions'::regclass), 'parser file completions have RLS');
+SELECT is(
+  (select count(*) from information_schema.role_table_grants
+   where grantee = 'authenticated' and table_schema = 'public'
+     and table_name = 'parser_file_completions' and privilege_type <> 'SELECT'),
+  0::bigint,
+  'owners cannot directly mutate parser file completions'
+);
 SELECT ok(exists (select 1 from pg_constraint where conname = 'parser_file_checkpoints_batch_key'), 'checkpoints deduplicate by job and batch');
 SELECT ok(exists (select 1 from pg_constraint where conname = 'parser_file_checkpoints_job_fk'), 'checkpoints remain bound to the leased job owner');
 SELECT is(
@@ -560,7 +813,77 @@ SELECT ok(exists (select 1 from pg_indexes where schemaname = 'public' and index
 SELECT ok(exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'parser_file_checkpoints' and policyname = 'Parser checkpoints are readable by owner'), 'checkpoint reads are owner-scoped');
 SELECT ok(to_regprocedure('public.worker_import_source(uuid,uuid)') is not null, 'worker source RPC exists');
 SELECT ok(to_regprocedure('public.worker_persist_normalized_batch(uuid,uuid,uuid,integer,jsonb,text[])') is not null, 'worker canonical persistence RPC exists');
+SELECT is(
+  (select count(*) from pg_proc where oid in (
+    'public.worker_complete_import_file(uuid,uuid,uuid,bigint,text[])'::regprocedure,
+    'public.worker_retry_import_job(uuid,uuid,text)'::regprocedure,
+    'public.worker_raw_cleanup_source(integer)'::regprocedure,
+    'public.worker_finish_raw_cleanup(uuid)'::regprocedure,
+    'public.worker_has_cleanup_import_object(text,text)'::regprocedure
+  )),
+  5::bigint,
+  'worker file completion, retry, and raw cleanup RPCs exist'
+);
+SELECT ok(
+  not has_function_privilege('anon', 'public.worker_complete_import_file(uuid,uuid,uuid,bigint,text[])', 'EXECUTE'),
+  'anonymous callers cannot complete worker files'
+);
 SELECT ok(exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'Active worker can read leased private import parts'), 'private Storage reads require an active worker lease');
+SELECT ok(
+  exists (
+    select 1 from pg_policies
+    where schemaname = 'storage' and tablename = 'objects'
+      and policyname = 'Recovery-expired worker can select private import parts'
+  ),
+  'recovery-expired source rows are visible only for Storage delete evaluation'
+);
+SELECT ok(
+  exists (
+    select 1 from pg_policies
+    where schemaname = 'storage' and tablename = 'objects'
+      and policyname = 'Recovery-expired worker can delete private import parts'
+  ),
+  'private source deletion requires the expired recovery window'
+);
+SELECT is(
+  (select count(*) from information_schema.role_table_grants
+   where grantee = 'anon' and table_schema = 'public'
+     and table_name in (
+       'health_samples', 'normalization_provenance', 'sleep_sessions',
+       'sleep_stages', 'activities', 'workout_sessions',
+       'parser_file_checkpoints'
+     )),
+  0::bigint,
+  'anonymous callers have no Step 4 canonical table grants'
+);
+SELECT is(
+  (select count(*) from information_schema.role_table_grants
+   where grantee = 'authenticated' and table_schema = 'public'
+     and table_name in (
+       'health_samples', 'normalization_provenance', 'sleep_sessions',
+       'sleep_stages', 'activities', 'workout_sessions',
+       'parser_file_checkpoints'
+     )
+     and privilege_type <> 'SELECT'),
+  0::bigint,
+  'authenticated callers can only read Step 4 canonical tables'
+);
+SELECT ok(
+  not has_function_privilege(
+    'anon',
+    'public.worker_has_active_import_object(text,text)',
+    'EXECUTE'
+  ),
+  'anonymous callers cannot execute the leased Storage helper'
+);
+SELECT ok(
+  has_function_privilege(
+    'authenticated',
+    'public.worker_has_active_import_object(text,text)',
+    'EXECUTE'
+  ),
+  'signed-in Storage policy evaluation can execute the leased object helper'
+);
 SELECT ok(not has_function_privilege('anon', 'public.worker_persist_normalized_batch(uuid,uuid,uuid,integer,jsonb,text[])', 'EXECUTE'), 'anonymous callers cannot persist canonical batches');
 SELECT ok(has_function_privilege('authenticated', 'public.worker_persist_normalized_batch(uuid,uuid,uuid,integer,jsonb,text[])', 'EXECUTE'), 'authenticated role reaches persistence only after worker claim validation');
 SET LOCAL request.jwt.claims = '{"sub":"00000000-0000-4000-8000-000000000031"}';
@@ -576,8 +899,180 @@ SELECT ok((SELECT lease_generation IS NOT NULL FROM public.import_jobs WHERE id 
 SELECT is((SELECT state FROM public.import_jobs WHERE id = '50000000-0000-4000-8000-000000000031'), 'processing', 'claim moves the job to processing');
 SELECT set_config('app.worker_generation', (SELECT lease_generation::text FROM public.import_jobs WHERE id = '50000000-0000-4000-8000-000000000031'), true);
 SELECT ok(public.worker_renew_import_job('50000000-0000-4000-8000-000000000031', current_setting('app.worker_generation')::uuid, 60), 'worker can renew its active lease');
-SELECT is((public.worker_checkpoint_import_job('50000000-0000-4000-8000-000000000031', '10000000-0000-4000-8000-000000000031', '30000000-0000-4000-8000-000000000031', current_setting('app.worker_generation')::uuid, 0, 1, 0, 2, ARRAY['route_content_dropped'])).batch_sequence, 0, 'worker checkpoint persists a safe token boundary');
-SELECT is((SELECT count(*) FROM public.parser_file_checkpoints WHERE job_id = '50000000-0000-4000-8000-000000000031'), 1::bigint, 'checkpoint replay remains one row');
+SELECT is(
+  (select count(*) from public.worker_import_source(
+    '50000000-0000-4000-8000-000000000031',
+    current_setting('app.worker_generation')::uuid
+  )),
+  1::bigint,
+  'worker source includes verified upload files'
+);
+SELECT is(
+  jsonb_array_length((
+    select parts from public.worker_import_source(
+      '50000000-0000-4000-8000-000000000031',
+      current_setting('app.worker_generation')::uuid
+    )
+  )),
+  1,
+  'worker source exposes immutable part metadata for the leased file'
+);
+SELECT throws_ok(
+  $sql$
+    select public.worker_persist_normalized_batch(
+      '50000000-0000-4000-8000-000000000031',
+      current_setting('app.worker_generation')::uuid,
+      '30000000-0000-4000-8000-000000000032',
+      0,
+      '[]'::jsonb,
+      '{}'::text[]
+    )
+  $sql$,
+  'P0001',
+  'source_file_invalid',
+  'worker persistence rejects a file that was not verified'
+);
+SELECT throws_ok(
+  $sql$
+    select public.worker_persist_normalized_batch(
+      '50000000-0000-4000-8000-000000000031',
+      current_setting('app.worker_generation')::uuid,
+      '30000000-0000-4000-8000-000000000031',
+      0,
+      '[{"kind":"sample","raw":"excluded"}]'::jsonb,
+      '{}'::text[]
+    )
+  $sql$,
+  'P0001',
+  'canonical_record_invalid',
+  'worker persistence rejects raw or sensitive canonical fields'
+);
+SELECT ok(
+  public.worker_persist_normalized_batch(
+    '50000000-0000-4000-8000-000000000031',
+    current_setting('app.worker_generation')::uuid,
+    '30000000-0000-4000-8000-000000000031',
+    0,
+    $batch$
+      [
+        {
+          "kind":"sample",
+          "dedupe_key":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "source_family":"huawei_health_json",
+          "source_type":"heart_rate",
+          "source_record_hash":"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "started_at":"2026-01-02T00:00:00Z",
+          "ended_at":"2026-01-02T00:01:00Z",
+          "unit":"bpm",
+          "source_unit":"bpm",
+          "value":72,
+          "parser_version":"huawei-json-v1"
+        },
+        {
+          "kind":"activity",
+          "dedupe_key":"abababababababababababababababababababababababababababababababab",
+          "source_record_hash":"cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+          "activity_type":"walking",
+          "started_at":"2026-01-02T01:00:00Z",
+          "ended_at":"2026-01-02T01:10:00Z",
+          "duration_seconds":600,
+          "parser_version":"huawei-json-v1"
+        }
+      ]
+    $batch$::jsonb,
+    ARRAY['route_content_dropped']
+  ),
+  'worker persists one bounded canonical batch'
+);
+SELECT ok(
+  (SELECT count(*) FROM public.parser_file_checkpoints WHERE job_id = '50000000-0000-4000-8000-000000000031') = 1
+  and
+  (SELECT count(*) FROM public.health_samples WHERE dedupe_key = repeat('e', 64)) = 1
+  and
+  (SELECT count(*) FROM public.activities WHERE dedupe_key = repeat('ab', 32)) = 1,
+  'canonical persistence and its checkpoint commit together'
+);
+SELECT throws_ok(
+  $sql$
+    select public.worker_persist_normalized_batch(
+      '50000000-0000-4000-8000-000000000031',
+      current_setting('app.worker_generation')::uuid,
+      '30000000-0000-4000-8000-000000000031',
+      0,
+      '[]'::jsonb,
+      ARRAY['route_content_dropped']
+    )
+  $sql$,
+  'P0001',
+  'checkpoint_replay_mismatch',
+  'checkpoint replay rejects a different committed batch shape'
+);
+SELECT ok(
+  public.worker_persist_normalized_batch(
+    '50000000-0000-4000-8000-000000000031',
+    current_setting('app.worker_generation')::uuid,
+    '30000000-0000-4000-8000-000000000031',
+    0,
+    $batch$
+      [
+        {
+          "kind":"sample",
+          "dedupe_key":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "source_family":"huawei_health_json",
+          "source_type":"heart_rate",
+          "source_record_hash":"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "started_at":"2026-01-02T00:00:00Z",
+          "ended_at":"2026-01-02T00:01:00Z",
+          "unit":"bpm",
+          "source_unit":"bpm",
+          "value":72,
+          "parser_version":"huawei-json-v1"
+        },
+        {
+          "kind":"activity",
+          "dedupe_key":"abababababababababababababababababababababababababababababababab",
+          "source_record_hash":"cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+          "activity_type":"walking",
+          "started_at":"2026-01-02T01:00:00Z",
+          "ended_at":"2026-01-02T01:10:00Z",
+          "duration_seconds":600,
+          "parser_version":"huawei-json-v1"
+        }
+      ]
+    $batch$::jsonb,
+    ARRAY['route_content_dropped']
+  )
+  and (SELECT count(*) FROM public.parser_file_checkpoints WHERE job_id = '50000000-0000-4000-8000-000000000031') = 1
+  and (SELECT count(*) FROM public.health_samples WHERE dedupe_key = repeat('e', 64)) = 1
+  and (SELECT count(*) FROM public.activities WHERE dedupe_key = repeat('ab', 32)) = 1,
+  'exact batch replay is idempotent across canonical rows and checkpoints'
+);
+SELECT ok(
+  public.worker_complete_import_file(
+    '50000000-0000-4000-8000-000000000031',
+    current_setting('app.worker_generation')::uuid,
+    '30000000-0000-4000-8000-000000000031',
+    2,
+    ARRAY['route_content_dropped']
+  ),
+  'worker records one completed source file'
+);
+SELECT is(
+  (select processed_file_count from public.import_jobs where id = '50000000-0000-4000-8000-000000000031'),
+  1,
+  'file completion increments owner-visible progress once'
+);
+SELECT ok(
+  public.worker_complete_import_file(
+    '50000000-0000-4000-8000-000000000031',
+    current_setting('app.worker_generation')::uuid,
+    '30000000-0000-4000-8000-000000000031',
+    2,
+    ARRAY['route_content_dropped']
+  )
+  and (select count(*) from public.parser_file_completions where job_id = '50000000-0000-4000-8000-000000000031') = 1,
+  'file completion replay is idempotent'
+);
 SELECT is(
   public.worker_renew_import_job('50000000-0000-4000-8000-000000000031', '60000000-0000-4000-8000-000000000031'::uuid, 60),
   false,
@@ -586,6 +1081,140 @@ SELECT is(
 SELECT ok(public.worker_finish_import_job('50000000-0000-4000-8000-000000000031', current_setting('app.worker_generation')::uuid, 'completed_with_warnings', ARRAY['route_content_dropped']), 'worker completion is idempotent and warning-safe');
 SELECT is((SELECT state FROM public.import_runs WHERE id = '10000000-0000-4000-8000-000000000031'), 'completed_with_warnings', 'completion updates the owner import state');
 SELECT ok((SELECT raw_parts_recovery_until >= now() + interval '23 hours' FROM public.import_runs WHERE id = '10000000-0000-4000-8000-000000000031'), 'completion applies the 24-hour raw recovery window');
+
+RESET ROLE;
+INSERT INTO public.import_runs (
+  id, user_id, client_idempotency_key, source_kind, state
+) VALUES (
+  '10000000-0000-4000-8000-000000000061',
+  '00000000-0000-4000-8000-000000000031',
+  '20000000-0000-4000-8000-000000000061',
+  'directory', 'processing'
+);
+INSERT INTO public.import_files (
+  id, import_id, user_id, client_file_id, source_reference_hash,
+  source_family, content_kind, inclusion_state, logical_bytes, content_sha256
+) VALUES (
+  '30000000-0000-4000-8000-000000000061',
+  '10000000-0000-4000-8000-000000000061',
+  '00000000-0000-4000-8000-000000000031',
+  '40000000-0000-4000-8000-000000000061',
+  'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa61',
+  'synthetic-json', 'application/json', 'verified', 1,
+  'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb61'
+);
+INSERT INTO public.import_file_parts (
+  id, file_id, import_id, user_id, part_index, byte_offset, byte_length,
+  content_sha256, object_path, state
+) VALUES (
+  '35000000-0000-4000-8000-000000000061',
+  '30000000-0000-4000-8000-000000000061',
+  '10000000-0000-4000-8000-000000000061',
+  '00000000-0000-4000-8000-000000000031',
+  0, 0, 1,
+  'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb61',
+  'imports/00000000-0000-4000-8000-000000000031/10000000-0000-4000-8000-000000000061/30000000-0000-4000-8000-000000000061/part-0',
+  'verified'
+);
+INSERT INTO public.import_jobs (
+  id, import_id, user_id, state, attempt_count, max_attempts,
+  worker_subject, lease_generation, lease_expires_at
+) VALUES (
+  '50000000-0000-4000-8000-000000000061',
+  '10000000-0000-4000-8000-000000000061',
+  '00000000-0000-4000-8000-000000000031',
+  'processing', 1, 3,
+  '00000000-0000-4000-8000-000000000031',
+  '60000000-0000-4000-8000-000000000061',
+  now() + interval '5 minutes'
+);
+
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"00000000-0000-4000-8000-000000000031","app_metadata":{"import_worker":"true"}}';
+SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-000000000031';
+SELECT is(
+  public.worker_retry_import_job(
+    '50000000-0000-4000-8000-000000000061',
+    '60000000-0000-4000-8000-000000000061',
+    'source_part_unavailable'
+  ),
+  'queued',
+  'retryable worker failure returns the job to the queue'
+);
+SELECT is(
+  (select state from public.import_jobs where id = '50000000-0000-4000-8000-000000000061'),
+  'queued',
+  'retry clears the active lease without losing the job'
+);
+
+RESET ROLE;
+UPDATE public.import_jobs
+set state = 'processing',
+    attempt_count = 3,
+    worker_subject = '00000000-0000-4000-8000-000000000031',
+    lease_generation = '60000000-0000-4000-8000-000000000062',
+    lease_expires_at = now() + interval '5 minutes'
+where id = '50000000-0000-4000-8000-000000000061';
+UPDATE public.import_runs set state = 'processing'
+where id = '10000000-0000-4000-8000-000000000061';
+
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"00000000-0000-4000-8000-000000000031","app_metadata":{"import_worker":"true"}}';
+SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-000000000031';
+SELECT is(
+  public.worker_retry_import_job(
+    '50000000-0000-4000-8000-000000000061',
+    '60000000-0000-4000-8000-000000000062',
+    'source_part_unavailable'
+  ),
+  'failed',
+  'retry exhaustion moves the job to its terminal state'
+);
+SELECT ok(
+  (select raw_parts_recovery_until >= now() + interval '23 hours'
+   from public.import_runs where id = '10000000-0000-4000-8000-000000000061'),
+  'retry exhaustion preserves the 24-hour recovery window'
+);
+
+RESET ROLE;
+UPDATE public.import_runs
+set raw_parts_recovery_until = now() - interval '1 minute'
+where id = '10000000-0000-4000-8000-000000000061';
+
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"00000000-0000-4000-8000-000000000031","app_metadata":{"import_worker":"true"}}';
+SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-000000000031';
+SELECT is(
+  (select count(*) from public.worker_raw_cleanup_source(25)
+   where import_id = '10000000-0000-4000-8000-000000000061'),
+  1::bigint,
+  'recovery-expired terminal import becomes a cleanup candidate'
+);
+SELECT is(
+  (select cardinality(object_paths) from public.worker_raw_cleanup_source(25)
+   where import_id = '10000000-0000-4000-8000-000000000061'),
+  1,
+  'cleanup candidate contains only its immutable source object paths'
+);
+SELECT ok(
+  public.worker_has_cleanup_import_object(
+    'health-imports',
+    'imports/00000000-0000-4000-8000-000000000031/10000000-0000-4000-8000-000000000061/30000000-0000-4000-8000-000000000061/part-0'
+  ),
+  'worker delete policy admits only an expired candidate path'
+);
+SELECT ok(
+  public.worker_finish_raw_cleanup('10000000-0000-4000-8000-000000000061'),
+  'worker finalizes raw cleanup after Storage is empty'
+);
+SELECT ok(
+  (select raw_parts_recovery_until is null
+     from public.import_runs where id = '10000000-0000-4000-8000-000000000061')
+  and
+  (select state = 'deleted'
+     from public.import_file_parts where id = '35000000-0000-4000-8000-000000000061'),
+  'cleanup clears the recovery deadline and marks source metadata deleted'
+);
 RESET ROLE;
 
 SELECT * FROM finish();

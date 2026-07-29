@@ -21,6 +21,7 @@ type Client struct {
 	baseURL        string
 	publishableKey string
 	httpClient     *http.Client
+	workerClient   *http.Client
 }
 
 type APIError struct {
@@ -59,6 +60,11 @@ type WorkerSourceFile struct {
 	Parts         []WorkerSourcePart `json:"parts"`
 }
 
+type WorkerCleanupCandidate struct {
+	ImportID    string   `json:"import_id"`
+	ObjectPaths []string `json:"object_paths"`
+}
+
 func (err *APIError) Error() string {
 	return fmt.Sprintf("supabase request failed: status=%d code=%s", err.Status, err.Code)
 }
@@ -78,7 +84,12 @@ func NewClient(baseURL, publishableKey string, httpClient *http.Client) (*Client
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 15 * time.Second}
 	}
-	return &Client{baseURL: baseURL, publishableKey: publishableKey, httpClient: httpClient}, nil
+	workerClient := *httpClient
+	workerClient.Timeout = 240 * time.Second
+	return &Client{
+		baseURL: baseURL, publishableKey: publishableKey,
+		httpClient: httpClient, workerClient: &workerClient,
+	}, nil
 }
 
 func (client *Client) CreateImport(ctx context.Context, accessToken string, request imports.ManifestCreateRequest) (imports.Snapshot, error) {
@@ -197,17 +208,30 @@ func (client *Client) WorkerImportSource(ctx context.Context, identity WorkerIde
 	return files, nil
 }
 
+func (client *Client) RenewWorkerImport(ctx context.Context, identity WorkerIdentity, lease WorkerLease, leaseSeconds int) (bool, error) {
+	var renewed bool
+	err := client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_renew_import_job", map[string]any{
+		"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration,
+		"p_lease_seconds": leaseSeconds,
+	}, &renewed)
+	return renewed, err
+}
+
 // ReadWorkerPart opens exactly one already-authorized private object. The
 // caller must close the response; the token and object path never leave the
 // worker process.
 func (client *Client) ReadWorkerPart(ctx context.Context, identity WorkerIdentity, objectPath string) (io.ReadCloser, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, client.baseURL+"/storage/v1/object/authenticated/"+importBucket+"/"+url.PathEscape(objectPath), nil)
+	escapedPath := escapeStoragePath(objectPath)
+	if escapedPath == "" {
+		return nil, errors.New("source_part_invalid")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, client.baseURL+"/storage/v1/object/authenticated/"+importBucket+"/"+escapedPath, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create storage request: %w", err)
 	}
 	req.Header.Set("apikey", client.publishableKey)
 	req.Header.Set("Authorization", "Bearer "+identity.accessToken)
-	res, err := client.httpClient.Do(req)
+	res, err := client.workerClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("send storage request: %w", err)
 	}
@@ -227,9 +251,54 @@ func (client *Client) PersistWorkerBatch(ctx context.Context, identity WorkerIde
 	}, nil)
 }
 
+func (client *Client) CompleteWorkerFile(ctx context.Context, identity WorkerIdentity, lease WorkerLease, fileID string, normalizedRecordCount int64, warningCodes []string) error {
+	return client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_complete_import_file", map[string]any{
+		"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration,
+		"p_import_file_id": fileID, "p_normalized_record_count": normalizedRecordCount,
+		"p_warning_codes": warningCodes,
+	}, nil)
+}
+
+func (client *Client) RetryWorkerImport(ctx context.Context, identity WorkerIdentity, lease WorkerLease, warningCode string) (string, error) {
+	var state string
+	err := client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_retry_import_job", map[string]any{
+		"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration,
+		"p_warning_code": warningCode,
+	}, &state)
+	return state, err
+}
+
 func (client *Client) FinishWorkerImport(ctx context.Context, identity WorkerIdentity, lease WorkerLease, terminalState string, warningCodes []string) (bool, error) {
 	var finished bool
 	err := client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_finish_import_job", map[string]any{"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration, "p_terminal_state": terminalState, "p_warning_codes": warningCodes}, &finished)
+	return finished, err
+}
+
+func (client *Client) ListWorkerRawCleanup(ctx context.Context, identity WorkerIdentity, limit int) ([]WorkerCleanupCandidate, error) {
+	var candidates []WorkerCleanupCandidate
+	err := client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_raw_cleanup_source", map[string]int{"p_limit": limit}, &candidates)
+	return candidates, err
+}
+
+func (client *Client) DeleteWorkerObjects(ctx context.Context, identity WorkerIdentity, objectPaths []string) error {
+	if !identity.ImportWorker || identity.accessToken == "" {
+		return errors.New("worker_configuration_invalid")
+	}
+	for start := 0; start < len(objectPaths); start += 1000 {
+		end := start + 1000
+		if end > len(objectPaths) {
+			end = len(objectPaths)
+		}
+		if err := client.deleteObjects(ctx, identity.accessToken, objectPaths[start:end]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (client *Client) FinishWorkerRawCleanup(ctx context.Context, identity WorkerIdentity, importID string) (bool, error) {
+	var finished bool
+	err := client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_finish_raw_cleanup", map[string]string{"p_import_id": importID}, &finished)
 	return finished, err
 }
 
@@ -256,6 +325,20 @@ func (client *Client) deleteObjects(ctx context.Context, accessToken string, obj
 		map[string]any{"prefixes": objectPaths},
 		nil,
 	)
+}
+
+func escapeStoragePath(objectPath string) string {
+	segments := strings.Split(strings.Trim(objectPath, "/"), "/")
+	if len(segments) == 0 {
+		return ""
+	}
+	for index, segment := range segments {
+		if segment == "" {
+			return ""
+		}
+		segments[index] = url.PathEscape(segment)
+	}
+	return strings.Join(segments, "/")
 }
 
 func (client *Client) requestJSON(ctx context.Context, accessToken, method, path string, body, response any) error {

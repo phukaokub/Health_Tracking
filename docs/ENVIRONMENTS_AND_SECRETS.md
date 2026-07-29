@@ -70,10 +70,20 @@ The web build is intentionally safe when Supabase variables are absent so generi
 | `SUPABASE_PUBLISHABLE_KEY` | Public identifier/internal config | Go foreground Data/Storage API calls with the verified user JWT | Local publishable key | Staging/preview publishable key | Production publishable key | Shell; Vercel API project |
 | `SUPABASE_JWT_ISSUER` | Internal | Exact JWT issuer | `<SUPABASE_URL>/auth/v1` | Hosted staging issuer | Hosted production issuer | Shell; Vercel API project |
 | `SUPABASE_JWT_AUDIENCE` | Internal | Required access-token audience | `authenticated` | `authenticated` unless intentionally changed | `authenticated` unless intentionally changed | Shell; Vercel API project |
+| `WORKER_TRIGGER_SECRET` | Secret | Authenticates the internal manual worker trigger | Generated only for explicit local verification | Vercel encrypted variable; rotated by each staging drill | Deferred | Vercel API project/release owner |
+| `SUPABASE_WORKER_IDENTITY` | Sensitive/internal | Dedicated Auth identifier used only by the server-side parser runtime | Synthetic local identity when required | Vercel encrypted variable paired with the staging Auth worker | Deferred | Vercel API project and Supabase Auth owner |
+| `SUPABASE_WORKER_PASSWORD` | Secret | Obtains a short-lived worker JWT | Generated local-only value when required | Vercel encrypted variable | Deferred | Vercel API project and Supabase Auth owner |
+| `WORKER_PROCESS_IMPORT_ENABLED` | Internal | Default-off release gate for `process_import` and `cleanup_sources` | `false` | `false`; temporarily `true` only inside a reviewed manual drill | Deferred/`false` | Vercel API project/release owner |
 
 The API validates user JWTs with public JWKS and uses the public `SUPABASE_PUBLISHABLE_KEY` only while forwarding that verified JWT to owner-scoped Data/Storage APIs. It does not require a Supabase secret key. Adding `sb_secret_*` or legacy `service_role` access is a separate security-sensitive change: document the use case, prove the browser cannot reach it, minimize privileges, add rotation and audit steps, and update this inventory before implementation.
 
-ADR 0002 accepts the Step 3 foreground path: forward the verified user JWT with the server-configured publishable key so RLS remains authoritative. Step 4 asynchronous workers need a separate least-privileged database/Storage credential decision because a browser JWT is short-lived. `DATABASE_URL` and `SUPABASE_SECRET_KEY` remain unconfigured and unauthorized.
+ADR 0002 accepts the Step 3 foreground path: forward the verified user JWT with the server-configured publishable key so RLS remains authoritative. ADR 0005 accepts a dedicated staging Auth identity for Step 4: the server obtains a short-lived JWT, while lease-checked definer RPCs and private Storage policies remain the authority. No worker credential enters a browser bundle, and `DATABASE_URL`, `SUPABASE_SECRET_KEY`, and legacy `service_role` access remain unconfigured and unauthorized.
+
+The stable API staging alias is served from the Vercel Production target of the
+separate `health-tracking-api-staging` project. That target is staging, not
+application production. Preview and that stable staging target carry the same
+worker variable names so a deployment cannot silently lose configuration;
+production application projects and credentials remain unprovisioned.
 
 ### Local Supabase and provider variables
 

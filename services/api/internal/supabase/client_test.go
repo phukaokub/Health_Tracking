@@ -3,6 +3,7 @@ package supabase
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -140,5 +141,46 @@ func TestWorkerStorageReadUsesShortLivedWorkerToken(t *testing.T) {
 	defer body.Close()
 	if bytes, _ := io.ReadAll(body); string(bytes) != "{}" {
 		t.Fatal("unexpected private body")
+	}
+}
+
+func TestDeleteWorkerObjectsUsesBoundedStorageBatches(t *testing.T) {
+	var batchSizes []int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete || r.URL.Path != "/storage/v1/object/health-imports" {
+			t.Fatalf("unexpected cleanup request: %s %s", r.Method, r.URL.Path)
+		}
+		if r.Header.Get("Authorization") != "Bearer worker-token" {
+			t.Fatal("cleanup request did not use the short-lived worker token")
+		}
+		var body struct {
+			Prefixes []string `json:"prefixes"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		batchSizes = append(batchSizes, len(body.Prefixes))
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "publishable-key", server.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	paths := make([]string, 1001)
+	for index := range paths {
+		paths[index] = fmt.Sprintf("imports/synthetic/part-%d", index)
+	}
+	err = client.DeleteWorkerObjects(
+		context.Background(),
+		WorkerIdentity{ImportWorker: true, Subject: "synthetic", accessToken: "worker-token"},
+		paths,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(batchSizes, []int{1000, 1}) {
+		t.Fatalf("cleanup requests were not bounded: %#v", batchSizes)
 	}
 }

@@ -5,12 +5,12 @@
 - Change ID: STEP-004
 - Milestone/work packages: Step 4 / 4A-4J
 - Owner: repository maintainer with Codex implementation support
-- Status: in progress; local parser, scalar/sleep/activity/workout slices, worker lease/checkpoint/retry/cleanup foundation, staging trigger, owner-visible processing status, and the private Storage/canonical persistence adapter are implemented on separate slices. The real-import trigger remains disabled by default pending hosted verification.
+- Status: complete for local, CI, and manual staging scope; parser, scalar/sleep/activity/workout mappings, motion repair, lease/checkpoint/retry, private Storage persistence, owner-visible progress, 24-hour cleanup, deletion, and hosted capacity/lifecycle evidence are implemented. The real-import trigger remains disabled by default outside reviewed manual staging drills.
 - Baseline commit: `b79d63ef3cbf85d9584234d7d92802d26d9b2112` (PR #9 merge)
-- Branch: `codex/step-4-storage-persistence`
-- Related records: [`../IMPLEMENTATION_STEPS.md`](../IMPLEMENTATION_STEPS.md), [`../DELIVERY_TRACKER.md`](../DELIVERY_TRACKER.md), [`0004-source-coverage-matrix.md`](0004-source-coverage-matrix.md), ADR 0005 (proposed)
+- Branch: `codex/step4-staging-verification`
+- Related records: [`../IMPLEMENTATION_STEPS.md`](../IMPLEMENTATION_STEPS.md), [`../DELIVERY_TRACKER.md`](../DELIVERY_TRACKER.md), [`0004-source-coverage-matrix.md`](0004-source-coverage-matrix.md), accepted ADR 0005
 - Target environments: local, CI, stable staging; production is explicitly excluded
-- Last updated: 2026-07-29
+- Last updated: 2026-07-30
 
 ## Outcome
 
@@ -34,7 +34,7 @@ A queued, owner-scoped import is parsed incrementally from immutable private Sto
 - Raw ECG interpretation, waveform/RRI persistence, diagnosis, treatment, or medical predictions.
 - Default GPS route storage or map rendering.
 - Production worker/provider provisioning or production data migration.
-- Hosted real-import execution, provider-side trigger enablement, and benchmark evidence; the source adapter remains disabled by default until those acceptance gates pass.
+- Automatic scheduling, an always-on worker, or production provider execution; staging uses a bounded manual trigger that is disabled by default.
 - A generic ETL platform, arbitrary JSON repair, or user-authored parser plugins.
 
 ## User and failure flows
@@ -90,11 +90,11 @@ A queued, owner-scoped import is parsed incrementally from immutable private Sto
 | Item | Type | Owner | Needed by | State / default |
 | --- | --- | --- | --- | --- |
 | Step 3 hosted acceptance | dependency | Product/release owner | 4F hosted worker | Required; local 4A-4E may proceed after job contract acceptance |
-| ADR 0005 worker runtime/access | decision | Engineering + security owner | 4F | Proposed; dedicated non-browser worker identity is preferred, broad service-role access rejected by default |
-| Mapping/exclusion matrix | product/privacy decision | Product owner | 4B/4D | Proposed in companion matrix; explicit user approval required |
+| ADR 0005 worker runtime/access | decision | Engineering + security owner | 4F | Accepted and verified in staging with a dedicated Auth identity; broad service-role access remains rejected |
+| Mapping/exclusion matrix | product/privacy decision | Product owner | 4B/4D | Accepted; ECG waveform/RRI and GPS/route content remain excluded |
 | JSON streaming library | dependency | Engineering | 4A | Prefer Go standard `encoding/json.Decoder`; add no library unless benchmark or token repair proves it necessary |
 | Motion tokenizer | dependency/design | Engineering | 4E | Custom narrow state machine; no general malformed-JSON library |
-| Queue/trigger | provider decision | Engineering/release owner | 4F/4H | Existing `import_jobs` is source of truth; Supabase Queue adoption requires a separate measured migration |
+| Queue/trigger | provider decision | Engineering/release owner | 4F/4H | Existing `import_jobs` is authoritative; default-off manual Vercel staging trigger accepted. Supabase Queue adoption requires a separate measured migration |
 | Worker runtime ceiling | limit | Engineering/release owner | 4F | Target 240-second slice; benchmark at 180 seconds and 192 MiB to preserve headroom |
 | Batch size | limit | Engineering | 4C/4D | Start at 1,000 rows and 4 MiB encoded parameter cap; lower based on staging latency |
 | Raw-part retention | privacy decision | Product/security owner | 4H | **Approved: 24 hours** after terminal worker result; cleanup also requires no active lease |
@@ -178,35 +178,40 @@ No value may be placed in source, chat, logs, screenshots, or PR text.
 | `WORKER_TRIGGER_SECRET` | Secret | Internal worker HTTP trigger | Generated local-only value | Vercel encrypted env + scheduler caller | Deferred | Release owner | Exposure, staff/offboarding, incident |
 | `SUPABASE_WORKER_IDENTITY` | Internal/sensitive | Worker login identifier | Synthetic worker account | Dedicated staging Auth account | Deferred | Vercel encrypted env; Auth admin owner | Account change/offboarding |
 | `SUPABASE_WORKER_PASSWORD` | Secret | Worker token acquisition | Generated local-only | Vercel encrypted env | Deferred | Vercel encrypted env; Auth admin owner | 90 days, exposure, auth anomaly |
-| `WORKER_MAX_SLICE_SECONDS` | Internal | Worker runtime guard | `240` default | Measured value <= provider max | Deferred | Config/env inventory | Runtime/provider change |
+| `WORKER_PROCESS_IMPORT_ENABLED` | Internal | Real-import/cleanup release gate | `false` | `false`, temporarily enabled only by the reviewed drill wrapper | Deferred | Vercel env/release owner | Runtime/provider change |
 | `PARSER_VERSION` | Internal | Worker and persistence RPC | Build constant | Release artifact | Deferred | Source/release metadata | Parser release |
 
-The proposed worker account must carry an admin-managed `app_metadata` claim, cannot sign into the web UI, and receives no owner table grants. If staging proves repeated Auth sign-in unsuitable for serverless invocation, stop and amend ADR 0005; do not silently substitute a service-role key.
+The worker account carries the admin-managed `app_metadata.import_worker` claim,
+its credentials exist only in the server-side encrypted environment, and it
+receives no cross-owner table grants. The application never supplies those
+credentials to the web UI. If repeated Auth sign-in becomes unsuitable for a
+future scheduled cadence, amend ADR 0005; do not silently substitute a
+service-role key.
 
 Missing or invalid worker configuration fails before claiming a job. Browser bundles must contain none of these variables. Any deployment variable change requires a new worker deployment and staging smoke.
 
 ## Third-party integration delta
 
 - Supabase: canonical schema, private Storage worker-read policy, Auth worker identity, job lease RPCs, quotas/egress measurement, security/performance advisors.
-- Vercel or alternate worker runtime: bounded internal invocation, exact region, max duration/memory, encrypted env, logs, rollback. Runtime is not accepted until a 72 MiB synthetic benchmark passes with at least 25% time/memory headroom.
+- Vercel staging runtime: bounded internal invocation, 240-second application deadline, encrypted env, redacted output, and default-off rollback. The generated 72 MiB and 330 MiB benchmarks passed with more than 25% time/memory headroom.
 - Supabase Queues/pgmq is optional, not assumed. Existing `import_jobs` remains authoritative until an adoption ADR proves migration, visibility timeout, RLS, and local/staging parity.
 - Supabase Edge Functions are not the default parser runtime because the current hosted limit is 256 MiB, 150 seconds on Free, and 2 seconds CPU per request; they may be used only as a narrowly scoped broker after a separate spike.
 - Stable staging uses synthetic data only. Record plan, region, storage/egress usage, account owner, recovery contact, and offboarding steps in the integration register.
 
 ## Security and privacy review
 
-- [ ] Worker authentication and authorization accepted in ADR 0005.
-- [ ] Worker cannot use browser routes or access objects without an active lease.
-- [ ] Owner and cross-owner claim/read/write/delete tests pass.
-- [ ] Canonical tables have RLS and explicit least-privilege grants.
-- [ ] Worker persistence uses fixed-signature RPCs with explicit worker, owner, import, and lease checks.
-- [ ] Function execute is revoked from `PUBLIC`/`anon`; definer helpers use empty search paths and are advisor-reviewed.
-- [ ] Size, nesting depth, token length, row count, batch byte size, attempts, and runtime are bounded.
-- [ ] Raw ECG/RRI, GPS, agreements, purchases, rankings, and unknown payloads are dropped before persistence.
-- [ ] Logs/evidence prohibit values, payload excerpts, paths/names, emails, tokens, signed URLs, and credentials.
-- [ ] Import/data/account deletion includes canonical rows, checkpoints, jobs, errors, and source objects.
-- [ ] Replay, duplicate delivery, lease theft, stale checkpoint, and cancellation races are tested.
-- [ ] Non-clinical wording remains intact; parser output is data normalization, not interpretation.
+- [x] Worker authentication and authorization accepted in ADR 0005.
+- [x] Worker Storage access requires an active lease; no worker credential enters browser code.
+- [x] Owner and cross-owner claim/read/write/delete tests pass.
+- [x] Canonical tables have RLS and explicit least-privilege grants.
+- [x] Worker persistence uses fixed-signature RPCs with explicit worker, owner, verified file, import, and lease checks.
+- [x] Function execute is revoked from `PUBLIC`/`anon`; definer helpers use empty search paths and are advisor-reviewed.
+- [x] Size, nesting depth, token length, row count, batch byte size, attempts, and runtime are bounded.
+- [x] Raw ECG/RRI, GPS, agreements, purchases, rankings, and unknown payloads are dropped before persistence.
+- [x] Logs/evidence prohibit values, payload excerpts, paths/names, emails, tokens, signed URLs, and credentials.
+- [x] Import/data/account deletion includes canonical rows, checkpoints, jobs, errors, source metadata, and source objects.
+- [x] Replay, duplicate delivery, lease theft, stale checkpoint, retry exhaustion, and cleanup races are tested.
+- [x] Non-clinical wording remains intact; parser output is data normalization, not interpretation.
 
 Threats and controls:
 
@@ -220,16 +225,16 @@ Threats and controls:
 
 | ID | Deliverable | Dependencies | Verification | Status |
 | --- | --- | --- | --- | --- |
-| 4A | Pure parser interfaces, registry, bounded reader/token limits, generated fixture builders | Step 3 contract | Unit tests, fuzz seeds, memory baseline | Planned |
-| 4B | Approve source/metric/exclusion/timezone/unit matrix | Sanitized observations | Product/privacy review of companion matrix | Planned |
-| 4C | Canonical schema, provenance, checkpoint tables, indexes, grants, RLS | 4B | Clean reset, lint, pgTAP, advisor review | Planned |
-| 4D | Health/sample/sleep/activity/workout/ECG-summary streaming mappings | 4A-4C | Deterministic snapshots and mapping tests | Planned |
-| 4E | Narrow motion-map tokenizer repair and strict revalidation | 4A, 4B | Valid/invalid/truncated/adversarial fixtures | Planned |
-| 4F | Worker identity, claim/lease/renew/checkpoint/persist/finish RPCs and Storage read | ADR 0005, 4C | Cross-owner, stale lease, replay, credential tests | Local private Storage/persistence adapter implemented; hosted verification pending |
-| 4G | Retry/dead-letter/cancel/raw-part retention coordination | 4D-4F | Crash/restart, batch rollback, deletion races | Local 24-hour cleanup contract in progress; hosted drill pending |
-| 4H | Runtime trigger and 72 MiB performance/egress benchmark | 4F, staging | Time/memory/egress report; provider failure drill | Synthetic-only trigger implemented; hosted deployment/benchmark evidence pending |
-| 4I | Owner-visible progress/warnings and safe operational diagnostics | 4D-4G | API/browser accessibility and redaction tests | Local polling/status UI implemented; unit and Chromium evidence green |
-| 4J | Staging synthetic full job, cleanup, rollback, and user acceptance | 4A-4I | Release-candidate evidence and matrix approval | Planned |
+| 4A | Pure parser interfaces, registry, bounded reader/token limits, generated fixture builders | Step 3 contract | Unit tests, fuzz seeds, memory baseline | Complete |
+| 4B | Approve source/metric/exclusion/timezone/unit matrix | Sanitized observations | Product/privacy review of companion matrix | Complete |
+| 4C | Canonical schema, provenance, checkpoint tables, indexes, grants, RLS | 4B | Clean reset, lint, pgTAP, advisor review | Complete |
+| 4D | Health/sample/sleep/activity/workout streaming mappings; ECG/RRI/GPS discarded | 4A-4C | Deterministic snapshots and mapping tests | Complete |
+| 4E | Narrow motion-map tokenizer repair and strict revalidation | 4A, 4B | Valid/invalid/truncated/adversarial fixtures | Complete |
+| 4F | Worker identity, claim/lease/renew/checkpoint/persist/finish RPCs and Storage read | ADR 0005, 4C | Cross-owner, stale lease, replay, credential tests | Complete locally and in staging |
+| 4G | Retry/dead-letter/cancel/raw-part retention coordination | 4D-4F | Crash/restart, batch rollback, deletion races | Complete; 24-hour cleanup and owner purge verified |
+| 4H | Runtime trigger and 72 MiB performance/egress benchmark | 4F, staging | Time/memory/egress report; provider failure drill | Complete; 72 MiB and five-file 330 MiB generated benchmarks green |
+| 4I | Owner-visible progress/warnings and safe operational diagnostics | 4D-4G | API/browser accessibility and redaction tests | Complete; unit, Chromium, and hosted sign-in smoke green |
+| 4J | Staging synthetic full job, cleanup, rollback, and user acceptance | 4A-4I | Release-candidate evidence and matrix approval | Complete; generated lifecycle converged with the gate restored off |
 
 Suggested PR sequence: 4A+fixtures; 4B+4C schema; 4D mappings; 4E repair; 4F worker boundary; 4G recovery; 4H+4I runtime/UX; 4J evidence. Each merge leaves the worker trigger disabled until 4F security and 4H capacity gates pass.
 
@@ -261,7 +266,11 @@ Suggested PR sequence: 4A+fixtures; 4B+4C schema; 4D mappings; 4E repair; 4F wor
 
 - Feature gates: worker trigger disabled by default; parser version allowlist; web processing UI can remain read-only.
 - Deployment order: expand schema -> parser artifact -> worker identity/policies -> disabled worker deployment -> synthetic claim -> enable one-job trigger -> staging soak.
-- Staging observation: at least one uninterrupted, one crash/resume, one cancellation/deletion, and one duplicate import; 24-hour queue/cleanup observation unless explicitly shortened with reason.
+- Staging observation: uninterrupted real-source processing, deterministic
+  crash/resume simulation, replay-idle duplicate delivery, owner deletion, and
+  recovery-expired cleanup passed. The 24-hour retention value was verified,
+  then only the disposable synthetic import's test clock was advanced so the
+  cleanup drill could complete without retaining test data for a day.
 - Rollback: disable trigger first, revoke worker session/secret if compromised, roll worker/API artifact back, leave expand-only schema, requeue only after checkpoint compatibility review.
 - Stop conditions: any cross-owner access, raw payload/value in logs or DB, unbounded memory, parser repair outside allowlist, duplicate canonical rows, stale worker commit, source deletion under active lease, or runtime headroom below 25%.
 
@@ -278,6 +287,12 @@ Required before Step 4 completion:
 - Deletion/rollback drill and known-good artifact.
 - Exact user approval for metrics, exclusions, warnings, ECG/GPS treatment.
 
+All required evidence is present for the accepted manual-staging scope. The
+capacity benchmark generated its source inside the runtime (zero provider
+source egress); the private Supabase Storage adapter was separately exercised
+with a generated bounded source. Production and automatic scheduling remain
+excluded.
+
 ## Change history
 
 | Date | Proposed delta | Impact | Decision/approver |
@@ -285,3 +300,4 @@ Required before Step 4 completion:
 | 2026-07-17 | Initial detailed Step 4 plan, work packages, limits, environment/secret inventory, test matrix, and rollout gates | Makes worker/provider/security and parser/data choices explicit before implementation | Proposed |
 | 2026-07-20 | Added staging-only manual `synthetic_benchmark` trigger and redacted 72 MiB deterministic recovery benchmark | Enables safe runtime verification without reading or persisting real import data; real Storage/persistence adapter remains a separate bounded slice | User-approved worker identity, trigger secret, and 24-hour recovery window |
 | 2026-07-29 | Added owner-visible processing status polling to the import page | Renders only bounded counts, terminal state copy, and allowlisted warning summaries; source names, paths, and health values remain excluded | Local frontend tests and Chromium UX evidence green |
+| 2026-07-30 | Completed the manual staging worker, 72/330 MiB capacity gates, real private-Storage persistence, replay/retry, 24-hour cleanup, and privacy deletion | Closes Step 4 without enabling an automatic scheduler or production resources; fixes hosted grant defaults, cleanup visibility, replay validation, and deletion retention found during the drill | User authorized staging provider configuration and production exclusion |

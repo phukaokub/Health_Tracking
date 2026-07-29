@@ -58,6 +58,14 @@ type Progress struct {
 	State                 string   `json:"state"`
 }
 
+// CleanupProgress is safe for operational responses. It contains no owner,
+// import, object-path, or source identifiers.
+type CleanupProgress struct {
+	ProcessedImportCount int    `json:"processed_import_count"`
+	DeletedObjectCount   int    `json:"deleted_object_count"`
+	State                string `json:"state"`
+}
+
 func (checkpoint Checkpoint) Validate(lease Lease) error {
 	if checkpoint.JobID != lease.JobID || checkpoint.ImportID != lease.ImportID || checkpoint.LeaseGeneration != lease.Generation {
 		return errors.New("checkpoint lease mismatch")
@@ -87,6 +95,16 @@ func (progress Progress) Validate() error {
 		if !safeCode.MatchString(code) {
 			return fmt.Errorf("warning code is not safe: %q", code)
 		}
+	}
+	return nil
+}
+
+func (progress CleanupProgress) Validate() error {
+	if progress.ProcessedImportCount < 0 || progress.DeletedObjectCount < 0 {
+		return errors.New("cleanup counts are invalid")
+	}
+	if progress.State != "idle" && progress.State != "completed" {
+		return errors.New("cleanup state is invalid")
 	}
 	return nil
 }

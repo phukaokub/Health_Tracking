@@ -15,6 +15,9 @@ func TestSyntheticBenchmarkIsDeterministicAndBounded(t *testing.T) {
 	if !result.DeterministicRecovery || result.ResumedFromBatch != 1 || result.NormalizedRecordCount == 0 {
 		t.Fatalf("unexpected recovery result: %+v", result)
 	}
+	if result.FileCount != 1 || result.InputBytes != MinSyntheticBenchmarkBytes {
+		t.Fatalf("single-file benchmark size drifted: %+v", result)
+	}
 	if result.InputBytes < MinSyntheticBenchmarkBytes || result.InputBytes > DefaultSyntheticBenchmarkBytes {
 		t.Fatalf("unexpected input size: %+v", result)
 	}
@@ -25,8 +28,18 @@ func TestSyntheticBenchmarkAtStagingTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.DeterministicRecovery || result.InputBytes < 70_000_000 {
+	if !result.DeterministicRecovery || result.InputBytes != DefaultSyntheticBenchmarkBytes {
 		t.Fatalf("staging target did not produce deterministic recovery: %+v", result)
+	}
+}
+
+func TestSyntheticMultiFileBenchmarkAtExportTarget(t *testing.T) {
+	result, err := RunSyntheticMultiFileBenchmark(context.Background(), DefaultSyntheticMultiFileBenchmarkBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.DeterministicRecovery || result.FileCount != 5 || result.InputBytes != DefaultSyntheticMultiFileBenchmarkBytes {
+		t.Fatalf("multi-file target did not produce deterministic recovery: %+v", result)
 	}
 }
 
