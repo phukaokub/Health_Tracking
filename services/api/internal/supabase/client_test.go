@@ -3,6 +3,7 @@ package supabase
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -107,7 +108,7 @@ func TestAuthenticateWorkerUsesPublishableKeyAndRequiresAppMetadataClaim(t *test
 			t.Fatal("worker auth did not use the publishable key")
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"access_token":"redacted","user":{"app_metadata":{"import_worker":true}}}`))
+		_, _ = w.Write([]byte(`{"access_token":"redacted","user":{"id":"00000000-0000-4000-8000-000000000099","app_metadata":{"import_worker":true}}}`))
 	}))
 	defer server.Close()
 	client, err := NewClient(server.URL, "publishable-key", server.Client())
@@ -117,5 +118,27 @@ func TestAuthenticateWorkerUsesPublishableKeyAndRequiresAppMetadataClaim(t *test
 	identity, err := client.AuthenticateWorker(context.Background(), "worker@staging.invalid", "synthetic-password")
 	if err != nil || !identity.ImportWorker {
 		t.Fatalf("worker identity was not accepted: %#v, %v", identity, err)
+	}
+}
+
+func TestWorkerStorageReadUsesShortLivedWorkerToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/storage/v1/object/authenticated/health-imports/imports/synthetic" || r.Header.Get("Authorization") != "Bearer worker-token" {
+			t.Fatalf("unexpected private read: %s", r.URL.String())
+		}
+		_, _ = w.Write([]byte("{}"))
+	}))
+	defer server.Close()
+	client, err := NewClient(server.URL, "publishable-key", server.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := client.ReadWorkerPart(context.Background(), WorkerIdentity{ImportWorker: true, Subject: "synthetic", accessToken: "worker-token"}, "imports/synthetic")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer body.Close()
+	if bytes, _ := io.ReadAll(body); string(bytes) != "{}" {
+		t.Fatal("unexpected private body")
 	}
 }

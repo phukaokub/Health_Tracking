@@ -5,9 +5,9 @@
 - Change ID: STEP-004
 - Milestone/work packages: Step 4 / 4A-4J
 - Owner: repository maintainer with Codex implementation support
-- Status: in progress; local parser, scalar/sleep/activity/workout slices, worker lease/checkpoint/retry/cleanup foundation, staging trigger, and owner-visible processing status are merged on separate slices. Real Storage-backed execution remains gated.
+- Status: in progress; local parser, scalar/sleep/activity/workout slices, worker lease/checkpoint/retry/cleanup foundation, staging trigger, owner-visible processing status, and the private Storage/canonical persistence adapter are implemented on separate slices. The real-import trigger remains disabled by default pending hosted verification.
 - Baseline commit: `b79d63ef3cbf85d9584234d7d92802d26d9b2112` (PR #9 merge)
-- Branch: `codex/step-4-owner-visible-progress`
+- Branch: `codex/step-4-storage-persistence`
 - Related records: [`../IMPLEMENTATION_STEPS.md`](../IMPLEMENTATION_STEPS.md), [`../DELIVERY_TRACKER.md`](../DELIVERY_TRACKER.md), [`0004-source-coverage-matrix.md`](0004-source-coverage-matrix.md), ADR 0005 (proposed)
 - Target environments: local, CI, stable staging; production is explicitly excluded
 - Last updated: 2026-07-29
@@ -34,7 +34,7 @@ A queued, owner-scoped import is parsed incrementally from immutable private Sto
 - Raw ECG interpretation, waveform/RRI persistence, diagnosis, treatment, or medical predictions.
 - Default GPS route storage or map rendering.
 - Production worker/provider provisioning or production data migration.
-- Real import execution from private Storage or canonical persistence in this trigger slice; `process_import` is rejected until its adapter and RLS proof are delivered.
+- Hosted real-import execution, provider-side trigger enablement, and benchmark evidence; the source adapter remains disabled by default until those acceptance gates pass.
 - A generic ETL platform, arbitrary JSON repair, or user-authored parser plugins.
 
 ## User and failure flows
@@ -225,7 +225,7 @@ Threats and controls:
 | 4C | Canonical schema, provenance, checkpoint tables, indexes, grants, RLS | 4B | Clean reset, lint, pgTAP, advisor review | Planned |
 | 4D | Health/sample/sleep/activity/workout/ECG-summary streaming mappings | 4A-4C | Deterministic snapshots and mapping tests | Planned |
 | 4E | Narrow motion-map tokenizer repair and strict revalidation | 4A, 4B | Valid/invalid/truncated/adversarial fixtures | Planned |
-| 4F | Worker identity, claim/lease/renew/checkpoint/persist/finish RPCs and Storage read | ADR 0005, 4C | Cross-owner, stale lease, replay, credential tests | Local foundation merged; real Storage/persistence adapter pending |
+| 4F | Worker identity, claim/lease/renew/checkpoint/persist/finish RPCs and Storage read | ADR 0005, 4C | Cross-owner, stale lease, replay, credential tests | Local private Storage/persistence adapter implemented; hosted verification pending |
 | 4G | Retry/dead-letter/cancel/raw-part retention coordination | 4D-4F | Crash/restart, batch rollback, deletion races | Local 24-hour cleanup contract in progress; hosted drill pending |
 | 4H | Runtime trigger and 72 MiB performance/egress benchmark | 4F, staging | Time/memory/egress report; provider failure drill | Synthetic-only trigger implemented; hosted deployment/benchmark evidence pending |
 | 4I | Owner-visible progress/warnings and safe operational diagnostics | 4D-4G | API/browser accessibility and redaction tests | Local polling/status UI implemented; unit and Chromium evidence green |

@@ -8,8 +8,8 @@ This is the living status document. Update it at each meaningful handoff, accept
 
 - Release target: private non-clinical V1.
 - Current gate: Step 4 owner-visible processing status after the merged parser, scalar, sleep, activity, workout, motion-repair, fuzz, worker-foundation, and staging-trigger slices. Step 3's hosted synthetic two-user, quota/outage, and cleanup suite remains explicitly deferred and is out of scope.
-- Current branch: `codex/step-4-owner-visible-progress`.
-- Active milestone: Step 4 lease/checkpoint/retry/cleanup and owner-visible processing contracts. ADR 0005 Option A (dedicated non-browser worker identity) and a 24-hour raw-source recovery window are approved; this slice adds privacy-safe owner polling and progress/warning rendering. Real Storage-backed import execution and canonical persistence remain pending.
+- Current branch: `codex/step-4-storage-persistence`.
+- Active milestone: Step 4 private Storage reader and canonical persistence adapter. ADR 0005 Option A (dedicated non-browser worker identity) and a 24-hour raw-source recovery window are approved; this slice adds active-lease-only private part reads, typed canonical batch persistence, and a default-off one-job trigger mode. Hosted deployment/benchmark and cleanup orchestration remain pending.
 - Active Step 4 plan: [`plans/0004-huawei-json-normalization.md`](plans/0004-huawei-json-normalization.md).
 - The Go foreground access decision is accepted in [`decisions/0002-foreground-supabase-access.md`](decisions/0002-foreground-supabase-access.md). Preview isolation is required before hosted verification (3I).
 - Production status: not provisioned and not approved for user data.
@@ -22,7 +22,7 @@ This is the living status document. Update it at each meaningful handoff, accept
 | 1 | Local Next.js/Go vertical slice | Done on `main` | Web/API baseline merged in PR #1 |
 | 2 | Supabase Auth, profiles, SSR sessions, JWT verification, and RLS | Done | Local email via Mailpit and Google login verified; PR #2 merged after Documentation, Web, and API checks passed |
 | 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | Handoff PR #16 open | User accepted local browser evidence plus hosted Google Auth and authenticated upload-to-queue. Hosted synthetic two-user RLS, quota/outage, and cleanup smoke is deferred and remains a recorded operational risk |
-| 4 | Streaming Huawei JSON parsing, normalization, provenance, and dedupe | Owner-visible processing slice in progress | PRs #17-#25 merged; this slice adds owner-scoped polling for queued/processing imports, bounded progress counts, terminal states, and allowlisted warning copy. Real Storage-backed job execution and canonical persistence adapter remain pending; ECG/RRI and GPS remain discarded |
+| 4 | Streaming Huawei JSON parsing, normalization, provenance, and dedupe | Private Storage/persistence slice in progress | PRs #17-#26 merged; this slice adds active-lease private Storage reads and typed canonical persistence behind a default-off manual mode. Hosted deployment/benchmark and cleanup orchestration remain pending; ECG/RRI and GPS remain discarded |
 | 5 | Legacy XLS allowlisted backfill and precedence | Planned | Parser library spike and sanitized fixture acceptance |
 | 6 | First summary, goals, reports, and dashboard | Planned | Normalized data contracts and UX acceptance |
 | 7 | Explainable scores, trends, deterministic suggestions, and safety copy | Planned | Metric coverage and threshold decisions |

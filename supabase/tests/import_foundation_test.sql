@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(98);
+SELECT plan(103);
 
 SELECT ok(to_regclass('public.import_runs') is not null, 'import_runs exists');
 SELECT ok(to_regclass('public.import_manifest_pages') is not null, 'import_manifest_pages exists');
@@ -546,9 +546,11 @@ SELECT is(
     'public.worker_renew_import_job(uuid,uuid,integer)'::regprocedure,
     'public.worker_checkpoint_import_job(uuid,uuid,uuid,uuid,integer,bigint,integer,bigint,text[])'::regprocedure,
     'public.worker_finish_import_job(uuid,uuid,text,text[])'::regprocedure,
-    'public.list_worker_raw_cleanup_candidates(integer)'::regprocedure
+    'public.list_worker_raw_cleanup_candidates(integer)'::regprocedure,
+    'public.worker_import_source(uuid,uuid)'::regprocedure,
+    'public.worker_persist_normalized_batch(uuid,uuid,uuid,integer,jsonb,text[])'::regprocedure
   ) and prosecdef),
-  5::bigint,
+  7::bigint,
   'worker transitions use definer functions with internal claim checks'
 );
 SELECT ok(exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'import_jobs' and column_name = 'processed_file_count'), 'jobs expose safe file progress counts');
@@ -556,6 +558,11 @@ SELECT ok(exists (select 1 from information_schema.columns where table_schema = 
 SELECT ok(exists (select 1 from pg_constraint where conname = 'import_jobs_max_attempts_check'), 'jobs bound retry attempts');
 SELECT ok(exists (select 1 from pg_indexes where schemaname = 'public' and indexname = 'import_runs_raw_parts_recovery_idx'), 'raw cleanup has a bounded recovery index');
 SELECT ok(exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'parser_file_checkpoints' and policyname = 'Parser checkpoints are readable by owner'), 'checkpoint reads are owner-scoped');
+SELECT ok(to_regprocedure('public.worker_import_source(uuid,uuid)') is not null, 'worker source RPC exists');
+SELECT ok(to_regprocedure('public.worker_persist_normalized_batch(uuid,uuid,uuid,integer,jsonb,text[])') is not null, 'worker canonical persistence RPC exists');
+SELECT ok(exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'Active worker can read leased private import parts'), 'private Storage reads require an active worker lease');
+SELECT ok(not has_function_privilege('anon', 'public.worker_persist_normalized_batch(uuid,uuid,uuid,integer,jsonb,text[])', 'EXECUTE'), 'anonymous callers cannot persist canonical batches');
+SELECT ok(has_function_privilege('authenticated', 'public.worker_persist_normalized_batch(uuid,uuid,uuid,integer,jsonb,text[])', 'EXECUTE'), 'authenticated role reaches persistence only after worker claim validation');
 SET LOCAL request.jwt.claims = '{"sub":"00000000-0000-4000-8000-000000000031"}';
 SELECT throws_ok(
   $sql$select * from public.worker_claim_import_job('huawei-json-v1', 60)$sql$,

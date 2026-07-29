@@ -59,7 +59,7 @@ func main() {
 			client:   importClient,
 			email:    os.Getenv("SUPABASE_WORKER_IDENTITY"),
 			password: os.Getenv("SUPABASE_WORKER_PASSWORD"),
-		},
+		}, os.Getenv("WORKER_PROCESS_IMPORT_ENABLED") == "true",
 	))
 	webOrigin := os.Getenv("WEB_ORIGIN")
 	if webOrigin == "" {
