@@ -7,9 +7,10 @@ This is the living status document. Update it at each meaningful handoff, accept
 ## Current release
 
 - Release target: private non-clinical V1.
-- Current gate: Step 4 is merged and staging-verified; the next gate is acceptance of the Step 5 legacy XLS backfill plan. Step 3's hosted synthetic two-user, quota/outage, and cleanup suite remains explicitly deferred and is out of scope.
-- Current branch: `main`.
-- Active milestone: Step 4 is complete for the approved local, CI, and manual-staging scope: generated Huawei parsing, canonical persistence, active leases, deterministic replay, owner-visible progress, 24-hour raw recovery, cleanup, and privacy deletion are verified. The runtime gate is restored to default-off; automatic scheduling and all production resources remain excluded. No Step 5 work has started.
+- Current gate: Step 5 implementation is accepted in PR #62; local verification and all required CI are green, with merge pending. Step 3's hosted synthetic two-user, quota/outage, and cleanup suite remains explicitly deferred and is out of scope.
+- Current branch: `codex/step5-legacy-xls-backfill`.
+- Active milestone: Step 5 now has exact-sheet BIFF8 parsing, deterministic daily identities, JSON-wins precedence, owner-scoped quality counts, and privacy/malformed-input coverage. The clean local matrix passed (Go, web build/unit, 148 pgTAP assertions, schema lint, and 2 browser import tests). Step 4 remains complete; automatic scheduling, production resources, ECG/RRI, GPS/routes, and later milestones remain excluded.
+- Active Step 5 plan: [`plans/0005-legacy-xls-backfill.md`](plans/0005-legacy-xls-backfill.md).
 - Active Step 4 plan: [`plans/0004-huawei-json-normalization.md`](plans/0004-huawei-json-normalization.md).
 - The Go foreground access decision is accepted in [`decisions/0002-foreground-supabase-access.md`](decisions/0002-foreground-supabase-access.md). Preview isolation is required before hosted verification (3I).
 - Production status: not provisioned and not approved for user data.

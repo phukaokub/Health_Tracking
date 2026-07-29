@@ -12,4 +12,5 @@ Current plans:
 
 - [`0003-import-manifest-upload.md`](0003-import-manifest-upload.md) — Step 3 implementation record; hosted/browser acceptance remains.
 - [`0004-huawei-json-normalization.md`](0004-huawei-json-normalization.md) — proposed Step 4 implementation plan.
+- [`0005-legacy-xls-backfill.md`](0005-legacy-xls-backfill.md) — in-progress Step 5 allowlisted backfill plan.
 - [`0004-source-coverage-matrix.md`](0004-source-coverage-matrix.md) — proposed Step 4 source and metric boundary.

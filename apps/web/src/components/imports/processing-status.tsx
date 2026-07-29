@@ -85,6 +85,25 @@ export function ProcessingStatus({ snapshot, onSnapshot }: ProcessingStatusProps
       {snapshot.state === "completed" || snapshot.state === "completed_with_warnings" ? (
         <p className="mt-2 text-xs text-slate-300">{recordCount} normalized records are ready for your private reports.</p>
       ) : null}
+      {snapshot.normalization?.legacy_backfill ? (
+        <div className="mt-3 rounded-xl border border-cyan-100/15 bg-slate-950/30 p-3 text-xs text-slate-200">
+          <p className="font-medium text-cyan-50">Legacy spreadsheet backfill</p>
+          <p className="mt-1">
+            {snapshot.normalization.legacy_backfill.inserted_metric_count} metrics added across{" "}
+            {snapshot.normalization.legacy_backfill.covered_date_count} historical days;{" "}
+            {snapshot.normalization.legacy_backfill.conflict_metric_count} conflicts kept the more detailed JSON value.
+          </p>
+          {snapshot.normalization.legacy_backfill.excluded_sheet_count +
+            snapshot.normalization.legacy_backfill.unknown_sheet_count +
+            snapshot.normalization.legacy_backfill.ambiguous_cell_count > 0 ? (
+            <p className="mt-1 text-amber-100">
+              {snapshot.normalization.legacy_backfill.excluded_sheet_count} excluded sheets,{" "}
+              {snapshot.normalization.legacy_backfill.unknown_sheet_count} unknown sheets, and{" "}
+              {snapshot.normalization.legacy_backfill.ambiguous_cell_count} ambiguous cells were not imported.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {pollError ? <p className="mt-3 text-xs text-amber-100">{pollError}</p> : null}
       {warningCodes.length ? (
         <ul className="mt-3 space-y-1 text-xs text-amber-100">

@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(135);
+SELECT plan(148);
 
 SELECT ok(to_regclass('public.import_runs') is not null, 'import_runs exists');
 SELECT ok(to_regclass('public.import_manifest_pages') is not null, 'import_manifest_pages exists');
@@ -9,6 +9,41 @@ SELECT ok(to_regclass('public.import_jobs') is not null, 'import_jobs exists');
 SELECT ok(to_regclass('public.import_errors') is not null, 'import_errors exists');
 SELECT ok(to_regclass('public.health_samples') is not null, 'health_samples exists');
 SELECT ok(to_regclass('public.normalization_provenance') is not null, 'normalization_provenance exists');
+SELECT ok(to_regclass('public.legacy_xls_quality_reports') is not null, 'legacy XLS quality table exists');
+SELECT ok(
+  (select relrowsecurity from pg_class where oid = 'public.legacy_xls_quality_reports'::regclass),
+  'legacy XLS quality table has RLS enabled'
+);
+SELECT ok(
+  has_table_privilege('authenticated', 'public.legacy_xls_quality_reports', 'SELECT'),
+  'owners can read legacy XLS quality through RLS'
+);
+SELECT ok(
+  not has_table_privilege('authenticated', 'public.legacy_xls_quality_reports', 'INSERT')
+  and not has_table_privilege('authenticated', 'public.legacy_xls_quality_reports', 'UPDATE')
+  and not has_table_privilege('authenticated', 'public.legacy_xls_quality_reports', 'DELETE'),
+  'clients cannot mutate legacy XLS quality'
+);
+SELECT ok(
+  exists (select 1 from pg_constraint where conname = 'legacy_xls_quality_counts_nonnegative'),
+  'legacy XLS quality counts are internally consistent'
+);
+SELECT ok(
+  exists (select 1 from pg_trigger where tgname = 'health_sample_source_precedence' and not tgisinternal),
+  'JSON-wins sample precedence trigger exists'
+);
+SELECT ok(
+  to_regprocedure('public.worker_persist_legacy_xls_quality(uuid,uuid,uuid,integer,integer,integer,integer,integer,integer)') is not null,
+  'lease-bound legacy XLS quality RPC exists'
+);
+SELECT ok(
+  exists (
+    select 1 from pg_attribute
+    where attrelid = 'public.health_samples'::regclass
+      and attname = 'canonical_day' and not attisdropped
+  ),
+  'health samples expose a canonical day for daily backfill precedence'
+);
 SELECT ok(to_regclass('public.sleep_sessions') is not null, 'sleep_sessions exists');
 SELECT ok(to_regclass('public.sleep_stages') is not null, 'sleep_stages exists');
 SELECT is(
@@ -254,6 +289,66 @@ INSERT INTO public.health_samples (
   'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
   '2026-01-02T00:00:00Z', '2026-01-02T00:01:00Z', 'count', 1, 'huawei-json-v1'
 );
+UPDATE public.import_runs
+SET timezone_candidate = 'UTC'
+WHERE id = '10000000-0000-4000-8000-000000000031';
+INSERT INTO public.health_samples (
+  user_id, import_id, import_file_id, dedupe_key, source_family, source_type,
+  source_record_hash, started_at, ended_at, unit, value, parser_version
+) VALUES (
+  '00000000-0000-4000-8000-000000000031',
+  '10000000-0000-4000-8000-000000000031',
+  '30000000-0000-4000-8000-000000000031',
+  repeat('7', 64), 'huawei_legacy_xls', 'steps', repeat('8', 64),
+  '2026-01-02T00:00:00Z', '2026-01-03T00:00:00Z', 'count', 50, 'huawei-legacy-xls-v1'
+);
+SELECT is(
+  (select count(*) from public.health_samples where dedupe_key = repeat('7', 64)),
+  0::bigint,
+  'legacy daily sample cannot override overlapping granular JSON'
+);
+INSERT INTO public.health_samples (
+  user_id, import_id, import_file_id, dedupe_key, source_family, source_type,
+  source_record_hash, started_at, ended_at, unit, value, parser_version
+) VALUES (
+  '00000000-0000-4000-8000-000000000031',
+  '10000000-0000-4000-8000-000000000031',
+  '30000000-0000-4000-8000-000000000031',
+  repeat('9', 64), 'huawei_legacy_xls', 'steps', repeat('a', 64),
+  '2026-01-03T00:00:00Z', '2026-01-04T00:00:00Z', 'count', 50, 'huawei-legacy-xls-v1'
+);
+SELECT is(
+  (select count(*) from public.health_samples where dedupe_key = repeat('9', 64)),
+  1::bigint,
+  'legacy daily sample fills a missing metric day'
+);
+INSERT INTO public.health_samples (
+  user_id, import_id, import_file_id, dedupe_key, source_family, source_type,
+  source_record_hash, started_at, ended_at, unit, value, parser_version
+) VALUES (
+  '00000000-0000-4000-8000-000000000031',
+  '10000000-0000-4000-8000-000000000031',
+  '30000000-0000-4000-8000-000000000031',
+  repeat('b', 64), 'huawei_health_json', 'steps', repeat('c', 64),
+  '2026-01-03T12:00:00Z', '2026-01-03T12:01:00Z', 'count', 60, 'huawei-json-v1'
+);
+SELECT is(
+  (select count(*) from public.health_samples where dedupe_key = repeat('9', 64)),
+  0::bigint,
+  'granular JSON imported later replaces lower-priority legacy data'
+);
+DELETE FROM public.health_samples WHERE dedupe_key = repeat('b', 64);
+INSERT INTO public.legacy_xls_quality_reports (
+  user_id, import_id, import_file_id, approved_sheet_count,
+  excluded_sheet_count, unknown_sheet_count, covered_date_count,
+  candidate_metric_count, inserted_metric_count, conflict_metric_count,
+  ambiguous_cell_count
+) VALUES (
+  '00000000-0000-4000-8000-000000000031',
+  '10000000-0000-4000-8000-000000000031',
+  '30000000-0000-4000-8000-000000000031',
+  1, 1, 1, 2, 5, 4, 1, 1
+);
 INSERT INTO public.import_jobs (id, import_id, user_id, state)
 VALUES ('50000000-0000-4000-8000-000000000031', '10000000-0000-4000-8000-000000000031', '00000000-0000-4000-8000-000000000031', 'queued');
 
@@ -270,6 +365,12 @@ SELECT is(
   1::bigint,
   'owner can read normalized samples'
 );
+SELECT is(
+  (select count(*) from public.legacy_xls_quality_reports
+   where import_id = '10000000-0000-4000-8000-000000000031'),
+  1::bigint,
+  'owner can read legacy XLS quality counts'
+);
 SELECT throws_ok(
   $sql$delete from public.import_runs where id = '10000000-0000-4000-8000-000000000031'$sql$,
   '42501',
@@ -278,6 +379,12 @@ SELECT throws_ok(
 );
 
 SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-000000000032';
+SELECT is(
+  (select count(*) from public.legacy_xls_quality_reports
+   where import_id = '10000000-0000-4000-8000-000000000031'),
+  0::bigint,
+  'another owner cannot read legacy XLS quality counts'
+);
 SELECT is(
   (SELECT count(*) FROM public.import_runs WHERE id = '10000000-0000-4000-8000-000000000031'),
   0::bigint,

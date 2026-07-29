@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 
+	"github.com/phukaokub/Health_Tracking/services/api/internal/normalization"
 	"github.com/phukaokub/Health_Tracking/services/api/internal/supabase"
 	"github.com/phukaokub/Health_Tracking/services/api/internal/worker"
 )
@@ -22,6 +23,7 @@ type workerRuntimeClient interface {
 	RenewWorkerImport(context.Context, supabase.WorkerIdentity, supabase.WorkerLease, int) (bool, error)
 	ReadWorkerPart(context.Context, supabase.WorkerIdentity, string) (io.ReadCloser, error)
 	PersistWorkerBatch(context.Context, supabase.WorkerIdentity, supabase.WorkerLease, string, int, []map[string]any, []string) error
+	PersistLegacyXLSQuality(context.Context, supabase.WorkerIdentity, supabase.WorkerLease, string, normalization.LegacyXLSQuality) error
 	CompleteWorkerFile(context.Context, supabase.WorkerIdentity, supabase.WorkerLease, string, int64, []string) error
 	RetryWorkerImport(context.Context, supabase.WorkerIdentity, supabase.WorkerLease, string) (string, error)
 	FinishWorkerImport(context.Context, supabase.WorkerIdentity, supabase.WorkerLease, string, []string) (bool, error)
@@ -87,9 +89,20 @@ func (service workerTriggerService) ProcessOneImport(ctx context.Context) (worke
 		for _, part := range file.Parts {
 			parts = append(parts, worker.SourcePart{Index: part.PartIndex, Bytes: part.ByteLength, SHA256: part.ContentSHA256, Path: part.ObjectPath})
 		}
-		result, parseErr := worker.ParsePrivateParts(ctx, opener, parts)
+		sourceFamily := file.SourceFamily
+		if sourceFamily == "" {
+			sourceFamily = "huawei-json"
+		}
+		timezone := file.TimezoneCandidate
+		if timezone == "" {
+			timezone = "UTC"
+		}
+		result, parseErr := worker.ParsePrivatePartsForSource(ctx, opener, parts, sourceFamily, timezone)
 		if parseErr != nil {
 			code := "source_part_invalid"
+			if safeCode := normalization.SafeCode(parseErr); safeCode != "source_schema_unsupported" {
+				code = safeCode
+			}
 			retryable := false
 			if parseErr.Error() == "source_part_unavailable" {
 				code = "source_part_unavailable"
@@ -120,6 +133,11 @@ func (service workerTriggerService) ProcessOneImport(ctx context.Context) (worke
 			batchSequence++
 			fileRecordCount += int64(len(batch))
 			progress.NormalizedRecordCount += int64(len(batch))
+		}
+		if result.LegacyXLSQuality != nil {
+			if err := service.client.PersistLegacyXLSQuality(ctx, identity, *lease, file.ID, *result.LegacyXLSQuality); err != nil {
+				return service.fail(ctx, identity, *lease, "canonical_persistence_failed", true)
+			}
 		}
 		if err := service.client.CompleteWorkerFile(ctx, identity, *lease, file.ID, fileRecordCount, warnings); err != nil {
 			return service.fail(ctx, identity, *lease, "file_checkpoint_failed", true)

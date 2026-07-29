@@ -6,8 +6,33 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
+	"os"
 	"testing"
 )
+
+func TestParsePrivatePartsDispatchesLegacyXLS(t *testing.T) {
+	data, err := os.ReadFile("../normalization/testdata/huawei_legacy_sanitized.xls")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(data)
+	result, err := ParsePrivatePartsForSource(context.Background(), memoryParts{"safe": data}, []SourcePart{{
+		Index: 0, Bytes: int64(len(data)), SHA256: hex.EncodeToString(sum[:]), Path: "safe",
+	}}, "legacy-xls", "Asia/Bangkok")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.LegacyXLSQuality == nil || len(result.Samples) != 10 {
+		t.Fatalf("unexpected XLS result: %#v", result.LegacyXLSQuality)
+	}
+	for _, record := range CanonicalRecords(result) {
+		for _, forbidden := range []string{"raw", "route", "ecg", "rri", "gps"} {
+			if _, exists := record[forbidden]; exists {
+				t.Fatalf("canonical record contains %q", forbidden)
+			}
+		}
+	}
+}
 
 type memoryParts map[string][]byte
 
