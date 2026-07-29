@@ -31,11 +31,23 @@ export type ImportFilePlan = {
 
 export type ImportSnapshot = {
   id: string;
-  state: "uploading" | "uploaded" | "queued" | "processing" | "completed" | "completed_with_warnings" | "failed" | "deleting" | "deleted";
+  state: "uploading" | "uploaded" | "queued" | "processing" | "completed" | "completed_with_warnings" | "failed" | "cancelling" | "cancelled" | "deleting" | "deleted";
   total_file_count: number;
   total_logical_bytes: number;
   files: ImportFilePlan[];
-  job?: { id: string; state: string; job_type: string } | null;
+  job?: {
+    id: string;
+    state: string;
+    job_type: string;
+    processed_file_count?: number;
+    normalized_record_count?: number;
+    warning_codes?: string[];
+    last_checkpoint_at?: string;
+  } | null;
+  normalization?: {
+    normalized_record_count: number;
+    warning_codes?: string[];
+  } | null;
 };
 
 export class ImportAPIError extends Error {

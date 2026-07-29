@@ -8,6 +8,7 @@ import { sha256Text, uuidFromSHA256 } from "@/lib/imports/identifiers";
 import { normalizeRelativePath } from "@/lib/imports/scan-policy";
 import type { DirectoryScanInput, DirectoryScanResult } from "@/lib/imports/scanner.types";
 import { DirectImportUploader, UploadCancelledError, type UploadProgress } from "@/lib/imports/tus-uploader";
+import { ProcessingStatus } from "@/components/imports/processing-status";
 
 type UploadStage = "idle" | "creating" | "uploading" | "paused" | "finalizing" | "queued" | "cancelling" | "cancelled" | "error";
 
@@ -240,7 +241,7 @@ export function ImportScanner() {
         </div>
       ) : null}
 
-      {uploadStage === "queued" ? <p className="mt-6 rounded-2xl bg-emerald-300/10 p-4 text-sm text-emerald-100">Upload verified and queued. Parsing begins in Step 4.</p> : null}
+      {uploadStage === "queued" && snapshot ? <ProcessingStatus snapshot={snapshot} onSnapshot={setSnapshot} /> : null}
       {uploadStage === "cancelled" ? <p className="mt-6 text-sm text-amber-200">Import cancelled and uploaded objects deleted.</p> : null}
       {uploadStage === "error" && snapshot ? <button className="mt-4 rounded-full border border-white/20 px-4 py-2 text-sm" type="button" onClick={startUpload}>Retry or resume upload</button> : null}
     </section>
