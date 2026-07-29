@@ -7,8 +7,8 @@ This is the living status document. Update it at each meaningful handoff, accept
 ## Current release
 
 - Release target: private non-clinical V1.
-- Current gate: Step 4 completion merge after local/CI and manual staging evidence. Step 3's hosted synthetic two-user, quota/outage, and cleanup suite remains explicitly deferred and is out of scope.
-- Current branch: `codex/step4-staging-verification`.
+- Current gate: Step 4 is merged and staging-verified; the next gate is acceptance of the Step 5 legacy XLS backfill plan. Step 3's hosted synthetic two-user, quota/outage, and cleanup suite remains explicitly deferred and is out of scope.
+- Current branch: `main`.
 - Active milestone: Step 4 is complete for the approved local, CI, and manual-staging scope: generated Huawei parsing, canonical persistence, active leases, deterministic replay, owner-visible progress, 24-hour raw recovery, cleanup, and privacy deletion are verified. The runtime gate is restored to default-off; automatic scheduling and all production resources remain excluded. No Step 5 work has started.
 - Active Step 4 plan: [`plans/0004-huawei-json-normalization.md`](plans/0004-huawei-json-normalization.md).
 - The Go foreground access decision is accepted in [`decisions/0002-foreground-supabase-access.md`](decisions/0002-foreground-supabase-access.md). Preview isolation is required before hosted verification (3I).
@@ -22,7 +22,7 @@ This is the living status document. Update it at each meaningful handoff, accept
 | 1 | Local Next.js/Go vertical slice | Done on `main` | Web/API baseline merged in PR #1 |
 | 2 | Supabase Auth, profiles, SSR sessions, JWT verification, and RLS | Done | Local email via Mailpit and Google login verified; PR #2 merged after Documentation, Web, and API checks passed |
 | 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | Handoff PR #16 open | User accepted local browser evidence plus hosted Google Auth and authenticated upload-to-queue. Hosted synthetic two-user RLS, quota/outage, and cleanup smoke is deferred and remains a recorded operational risk |
-| 4 | Streaming Huawei JSON parsing, normalization, provenance, and dedupe | Done | PRs #17-#27 plus the completion slice cover generated fixtures, scalar/sleep/activity/workout mapping, motion repair, worker leases/retry, private Storage persistence, owner UI, staging capacity/lifecycle/cleanup evidence, and privacy deletion. ECG/RRI and GPS remain discarded; production remains excluded |
+| 4 | Streaming Huawei JSON parsing, normalization, provenance, and dedupe | Done | PRs #17-#27 and completion PR #61 cover generated fixtures, scalar/sleep/activity/workout mapping, motion repair, worker leases/retry, private Storage persistence, owner UI, staging capacity/lifecycle/cleanup evidence, and privacy deletion. ECG/RRI and GPS remain discarded; production remains excluded |
 | 5 | Legacy XLS allowlisted backfill and precedence | Planned | Parser library spike and sanitized fixture acceptance |
 | 6 | First summary, goals, reports, and dashboard | Planned | Normalized data contracts and UX acceptance |
 | 7 | Explainable scores, trends, deterministic suggestions, and safety copy | Planned | Metric coverage and threshold decisions |
@@ -129,6 +129,7 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | 2026-07-30 | Step 4 hosted private-source lifecycle | A disposable generated import streamed from private Storage, persisted scalar/provenance/sleep/activity/workout rows, excluded ECG/RRI/GPS/route content, replayed idly, honored the 24-hour recovery rule, cleaned its raw object, and purged canonical/worker/source metadata on owner delete | Green; trigger gate restored to `false`, the test clock was advanced only for the disposable cleanup drill, and the generated Auth account plus all test rows/objects converged to zero |
 | 2026-07-30 | Step 4 hosted security repair | Forward migrations removed provider-default anon/write grants, limited worker Storage to active leases or expired cleanup candidates, bounded/replay-validated batches, added deletion indexes, and made owner deletion Storage-first and complete | Hosted RLS/grant checks green; no anonymous helper or missing-RLS advisor finding. Reviewed definer notices and staging leaked-password protection remain operational/Step 8 items, not production evidence |
 | 2026-07-30 | Step 4 final local matrix | Documentation check covered 74 Markdown files; Go test/vet, web lint/typecheck/21 unit tests/production build, clean Supabase reset/schema lint/135 pgTAP assertions, and two Chromium import scenarios passed | Green; fixtures and browser artifacts are synthetic and privacy-safe |
+| 2026-07-30 | Step 4 completion merge | PR #61 passed Documentation, Web, API, and Supabase schema/RLS checks and was squash-merged as `12989f6` | Step 4 is done for the approved local, CI, and manual-staging scope; production and automatic scheduling remain excluded |
 
 Do not record credential values, email addresses, raw health content, or private incident details in this log.
 
