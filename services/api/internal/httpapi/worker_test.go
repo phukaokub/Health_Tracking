@@ -19,10 +19,14 @@ func (runner *fakeWorkerRunner) RunSyntheticBenchmark(_ context.Context, targetB
 	runner.called = true
 	return worker.BenchmarkResult{ParserVersion: worker.ParserVersion, InputBytes: targetBytes, DeterministicRecovery: true}, nil
 }
+func (runner *fakeWorkerRunner) ProcessOneImport(_ context.Context) (worker.Progress, error) {
+	runner.called = true
+	return worker.Progress{State: "completed", TotalFileCount: 1, ProcessedFileCount: 1}, nil
+}
 
 func TestWorkerTriggerRequiresSecretAndRunsSyntheticMode(t *testing.T) {
 	runner := &fakeWorkerRunner{}
-	handler := NewWorkerTriggerHandler("synthetic-trigger-secret", runner)
+	handler := NewWorkerTriggerHandler("synthetic-trigger-secret", runner, false)
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/worker/trigger", strings.NewReader(`{"target_bytes":1048576}`))
 	request.Header.Set("X-Worker-Trigger", "synthetic-trigger-secret")
 	response := httptest.NewRecorder()
@@ -41,7 +45,7 @@ func TestWorkerTriggerRequiresSecretAndRunsSyntheticMode(t *testing.T) {
 
 func TestWorkerTriggerDoesNotInvokeRunnerWithWrongSecret(t *testing.T) {
 	runner := &fakeWorkerRunner{}
-	handler := NewWorkerTriggerHandler("synthetic-trigger-secret", runner)
+	handler := NewWorkerTriggerHandler("synthetic-trigger-secret", runner, false)
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/worker/trigger", nil)
 	request.Header.Set("X-Worker-Trigger", "wrong")
 	response := httptest.NewRecorder()
@@ -53,12 +57,24 @@ func TestWorkerTriggerDoesNotInvokeRunnerWithWrongSecret(t *testing.T) {
 
 func TestWorkerTriggerRejectsRealImportMode(t *testing.T) {
 	runner := &fakeWorkerRunner{}
-	handler := NewWorkerTriggerHandler("synthetic-trigger-secret", runner)
+	handler := NewWorkerTriggerHandler("synthetic-trigger-secret", runner, false)
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/worker/trigger", strings.NewReader(`{"mode":"process_import"}`))
 	request.Header.Set("X-Worker-Trigger", "synthetic-trigger-secret")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusBadRequest || runner.called {
 		t.Fatalf("real import mode was not rejected: %d %v", response.Code, runner.called)
+	}
+}
+
+func TestWorkerTriggerAllowsLeaseBoundImportModeOnlyWhenEnabled(t *testing.T) {
+	runner := &fakeWorkerRunner{}
+	handler := NewWorkerTriggerHandler("synthetic-trigger-secret", runner, true)
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/worker/trigger", strings.NewReader(`{"mode":"process_import"}`))
+	request.Header.Set("X-Worker-Trigger", "synthetic-trigger-secret")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !runner.called {
+		t.Fatalf("enabled import mode failed: %d %s", response.Code, response.Body.String())
 	}
 }

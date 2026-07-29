@@ -196,11 +196,15 @@ async function deleteImport(importID, token) {
 }
 
 async function expectImportStorageEmpty(userID, importID) {
-  const { data, error } = await ownerData.storage
-    .from("health-imports")
-    .list(`imports/${userID}/${importID}`, { limit: 100 });
-  expect(error).toBeNull();
-  expect(data).toEqual([]);
+  await expect
+    .poll(async () => {
+      const { data, error } = await ownerData.storage
+        .from("health-imports")
+        .list(`imports/${userID}/${importID}`, { limit: 100 });
+      if (error) throw error;
+      return data.length;
+    }, { timeout: 5_000 })
+    .toBe(0);
 }
 
 function authOptions() {

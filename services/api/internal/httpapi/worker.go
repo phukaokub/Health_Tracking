@@ -15,6 +15,9 @@ import (
 type WorkerBenchmarkRunner interface {
 	RunSyntheticBenchmark(context.Context, int64) (worker.BenchmarkResult, error)
 }
+type WorkerImportRunner interface {
+	ProcessOneImport(context.Context) (worker.Progress, error)
+}
 
 type workerTriggerRequest struct {
 	Mode        string `json:"mode"`
@@ -26,9 +29,10 @@ type workerTriggerResponse struct {
 	Mode                string                 `json:"mode"`
 	WorkerAuthenticated bool                   `json:"worker_authenticated"`
 	Benchmark           worker.BenchmarkResult `json:"benchmark"`
+	Progress            worker.Progress        `json:"progress"`
 }
 
-func NewWorkerTriggerHandler(triggerSecret string, runner WorkerBenchmarkRunner) http.Handler {
+func NewWorkerTriggerHandler(triggerSecret string, runner WorkerBenchmarkRunner, allowProcessImport bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.Header().Set("Allow", http.MethodPost)
@@ -52,6 +56,22 @@ func NewWorkerTriggerHandler(triggerSecret string, runner WorkerBenchmarkRunner)
 		}
 		if request.Mode == "" {
 			request.Mode = "synthetic_benchmark"
+		}
+		if request.Mode == "process_import" {
+			importRunner, ok := runner.(WorkerImportRunner)
+			if !allowProcessImport || !ok {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "worker_mode_unsupported"})
+				return
+			}
+			ctx, cancel := context.WithTimeout(r.Context(), 240*time.Second)
+			defer cancel()
+			progress, err := importRunner.ProcessOneImport(ctx)
+			if err != nil {
+				writeJSON(w, http.StatusBadGateway, map[string]string{"error": "worker_import_failed"})
+				return
+			}
+			writeJSON(w, http.StatusOK, workerTriggerResponse{Status: "ok", Mode: request.Mode, WorkerAuthenticated: true, Progress: progress})
+			return
 		}
 		if request.Mode != "synthetic_benchmark" {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "worker_mode_unsupported"})

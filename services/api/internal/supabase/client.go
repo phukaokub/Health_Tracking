@@ -30,6 +30,33 @@ type APIError struct {
 
 type WorkerIdentity struct {
 	ImportWorker bool
+	Subject      string
+	accessToken  string
+}
+
+// WorkerLease and WorkerSource are intentionally metadata-only. Source bytes
+// are streamed directly from private Storage and never become API responses or
+// logs.
+type WorkerLease struct {
+	JobID           string `json:"job_id"`
+	ImportID        string `json:"import_id"`
+	UserID          string `json:"user_id"`
+	LeaseGeneration string `json:"lease_generation"`
+	Attempt         int    `json:"attempt_count"`
+}
+
+type WorkerSourcePart struct {
+	PartIndex     int    `json:"part_index"`
+	ByteLength    int64  `json:"byte_length"`
+	ContentSHA256 string `json:"content_sha256"`
+	ObjectPath    string `json:"object_path"`
+}
+
+type WorkerSourceFile struct {
+	ID            string             `json:"id"`
+	LogicalBytes  int64              `json:"logical_bytes"`
+	ContentSHA256 string             `json:"content_sha256"`
+	Parts         []WorkerSourcePart `json:"parts"`
 }
 
 func (err *APIError) Error() string {
@@ -123,6 +150,7 @@ func (client *Client) AuthenticateWorker(ctx context.Context, email, password st
 	var response struct {
 		AccessToken string `json:"access_token"`
 		User        struct {
+			ID          string         `json:"id"`
 			AppMetadata map[string]any `json:"app_metadata"`
 		} `json:"user"`
 	}
@@ -139,7 +167,70 @@ func (client *Client) AuthenticateWorker(ctx context.Context, email, password st
 	if !ok || !claim {
 		return WorkerIdentity{}, errors.New("worker_configuration_invalid")
 	}
-	return WorkerIdentity{ImportWorker: true}, nil
+	if response.User.ID == "" {
+		return WorkerIdentity{}, errors.New("worker_configuration_invalid")
+	}
+	return WorkerIdentity{ImportWorker: true, Subject: response.User.ID, accessToken: response.AccessToken}, nil
+}
+
+// ClaimWorkerImport returns one server-selected lease. Callers cannot select an
+// owner, import, or Storage path.
+func (client *Client) ClaimWorkerImport(ctx context.Context, identity WorkerIdentity, parserVersion string, leaseSeconds int) (*WorkerLease, error) {
+	if !identity.ImportWorker || identity.accessToken == "" || identity.Subject == "" {
+		return nil, errors.New("worker_configuration_invalid")
+	}
+	var rows []WorkerLease
+	if err := client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_claim_import_job", map[string]any{"p_parser_version": parserVersion, "p_lease_seconds": leaseSeconds}, &rows); err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	return &rows[0], nil
+}
+
+func (client *Client) WorkerImportSource(ctx context.Context, identity WorkerIdentity, lease WorkerLease) ([]WorkerSourceFile, error) {
+	var files []WorkerSourceFile
+	if err := client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_import_source", map[string]string{"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration}, &files); err != nil {
+		return nil, err
+	}
+	return files, nil
+}
+
+// ReadWorkerPart opens exactly one already-authorized private object. The
+// caller must close the response; the token and object path never leave the
+// worker process.
+func (client *Client) ReadWorkerPart(ctx context.Context, identity WorkerIdentity, objectPath string) (io.ReadCloser, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, client.baseURL+"/storage/v1/object/authenticated/"+importBucket+"/"+url.PathEscape(objectPath), nil)
+	if err != nil {
+		return nil, fmt.Errorf("create storage request: %w", err)
+	}
+	req.Header.Set("apikey", client.publishableKey)
+	req.Header.Set("Authorization", "Bearer "+identity.accessToken)
+	res, err := client.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("send storage request: %w", err)
+	}
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		res.Body.Close()
+		return nil, &APIError{Status: res.StatusCode, Code: "storage_read_failed"}
+	}
+	return res.Body, nil
+}
+
+// PersistWorkerBatch accepts only canonical typed records and safe warning
+// codes. The database derives owner/import provenance from the active lease.
+func (client *Client) PersistWorkerBatch(ctx context.Context, identity WorkerIdentity, lease WorkerLease, fileID string, batchSequence int, records []map[string]any, warningCodes []string) error {
+	return client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_persist_normalized_batch", map[string]any{
+		"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration, "p_import_file_id": fileID,
+		"p_batch_sequence": batchSequence, "p_records": records, "p_warning_codes": warningCodes,
+	}, nil)
+}
+
+func (client *Client) FinishWorkerImport(ctx context.Context, identity WorkerIdentity, lease WorkerLease, terminalState string, warningCodes []string) (bool, error) {
+	var finished bool
+	err := client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_finish_import_job", map[string]any{"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration, "p_terminal_state": terminalState, "p_warning_codes": warningCodes}, &finished)
+	return finished, err
 }
 
 func (client *Client) rpc(ctx context.Context, accessToken, name string, body any) (imports.Snapshot, error) {
