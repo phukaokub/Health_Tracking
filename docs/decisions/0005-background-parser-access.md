@@ -1,6 +1,6 @@
 # ADR 0005: Background parser runtime and Supabase access
 
-- Status: accepted for the local worker foundation; hosted execution remains gated
+- Status: accepted and verified for the manual staging worker; production remains gated
 - Date: 2026-07-17
 - Decision owners: product/release owner and engineering/security owner
 - Related milestone/change/PR: Step 4 / 4F-4H / `codex/step-4-plan`
@@ -54,17 +54,18 @@ Current provider guidance must be rechecked before acceptance. As reviewed on 20
 - Security/privacy/data impact: provider-internal secret is still broad and function bugs bypass RLS.
 - Reversibility: high rewrite cost.
 
-## Proposed decision
+## Decision
 
 Prefer Option A for the staging spike: a dedicated non-browser Supabase Auth worker identity with admin-managed `app_metadata.import_worker = true`, short-lived access tokens, lease-generation checks, and no direct canonical table writes. The worker calls fixed-signature claim/renew/persist/complete/fail RPCs and may read only Storage parts belonging to its current valid lease. `PUBLIC`/`anon` execute is revoked; browser users cannot call worker RPCs successfully.
 
 Run the Go worker in bounded invocations, initially targeting Vercel's 300-second runtime with a 240-second application deadline. Process and commit bounded batches/checkpoints so termination is safe. The trigger remains disabled until Auth session acquisition, runtime headroom, Storage policy, cross-owner denial, and secret rotation all pass in staging.
 
-The product/release owner and engineering/security owner approved Option A for
-the source-only worker foundation on 2026-07-19. Hosted Auth identity creation,
-trigger enablement, runtime benchmarking, and secret provisioning remain a
-separate staging gate. If worker Auth login/refresh behavior or runtime
-benchmarks fail, stop and revise this ADR. Do not silently fall back to Option B.
+The product/release owner and engineering/security owner approved Option A on
+2026-07-19 and authorized its staging provider configuration on 2026-07-30.
+The dedicated Auth identity, encrypted Vercel variables, active-lease Storage
+policy, fixed persistence RPCs, and a manual default-off trigger are now
+verified in staging. No service-role key was introduced. Production identity,
+trigger, scheduler, and provider configuration remain a separate Step 9 gate.
 
 ## Consequences
 
@@ -76,22 +77,38 @@ benchmarks fail, stop and revise this ADR. Do not silently fall back to Option B
 
 ### Negative and follow-up
 
-- Worker Auth rate/session behavior requires a real staging spike.
+- Each manual invocation performs a worker Auth sign-in; a future scheduled
+  cadence must remain within Auth limits or revisit this decision.
 - Raw source parts have a 24-hour recovery window after a terminal worker
   result; cleanup is eligible only after that window and when no lease is active.
 - Security-definer helpers that inspect worker claims/leases require empty search paths, explicit execute grants, pgTAP cross-owner tests, and Supabase advisor review.
-- Vercel deployment/runtime configuration and costs are not yet provisioned.
-- System-wide abandoned cleanup should reuse the accepted worker identity only after its permissions are separately proven.
+- Staging Vercel runtime configuration is active on a separate staging project;
+  production cost/runtime selection remains deferred.
+- Recovery-expired raw-source cleanup reuses the accepted identity and has
+  separate SELECT/DELETE policy checks; broader abandoned-upload scheduling is
+  still outside this decision.
 
 ## Acceptance evidence
 
-- Generated 72 MiB and 330 MiB-shape benchmark with peak RSS, CPU/wall time, egress, and checkpoint count.
-- Worker login/refresh rate test for the chosen trigger cadence without storing refresh tokens in logs or mutable source.
-- Worker claim cannot access a non-leased, expired-lease, cancelled, newer-generation, or other-owner object/job.
-- Browser JWT and anonymous requests cannot execute worker mutation RPCs.
-- Secret absence/mis-scope fails before claim; rotation/revocation drill succeeds.
-- Crash at each batch boundary resumes deterministically with no duplicate rows.
-- Supabase security/performance advisors have no unaccepted critical finding.
+- Generated 72 MiB single-file and 330 MiB/five-file benchmarks completed with
+  deterministic replay and more than 25% time/memory headroom; generated
+  capacity tests used no provider source egress.
+- A generated private-Storage job authenticated the worker, persisted scalar,
+  sleep, activity, and workout rows, dropped ECG/RRI/GPS/route content, and
+  returned only counts and stable warning codes.
+- Active/stale lease, browser-shaped claim, anonymous execute, verified-file,
+  batch replay, dedupe, and owner RLS tests pass locally; hosted grants and
+  policies match those controls.
+- Trigger rotation/redeployment succeeded, real processing stayed default-off
+  outside the bounded drill, and a second invocation was idle.
+- The approved 24-hour deadline was verified, then the synthetic test clock was
+  advanced explicitly to exercise cleanup without a 24-hour wait. Raw source,
+  canonical rows after owner delete, and the disposable test account all
+  converged to zero.
+- Supabase advisors report only reviewed authenticated definer notices,
+  unrelated performance information, and the staging Auth leaked-password
+  setting that remains a Step 8/production-readiness item; no missing RLS or
+  anonymous worker-helper finding remains.
 
 ## Revisit triggers
 

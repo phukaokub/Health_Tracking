@@ -38,10 +38,17 @@ The public health endpoint is `http://localhost:8080/api/v1/health`. Protected r
 
 The internal `POST /api/v1/worker/trigger` route is protected by the server-only
 `X-Worker-Trigger` value and authenticates the dedicated Supabase worker
-identity. Its current staging-safe mode is `synthetic_benchmark`; it generates
-only synthetic Huawei-shaped JSON, measures deterministic parse/recovery
-behavior, and rejects real import execution until the Storage and canonical
-persistence adapter is separately proven.
+identity. `synthetic_benchmark` and `synthetic_multifile_benchmark` generate
+only synthetic Huawei-shaped JSON and measure deterministic recovery,
+time, and heap use. `process_import` claims at most one server-selected job,
+streams only its lease-authorized private Storage parts, and persists typed
+canonical batches. `cleanup_sources` removes only terminal raw sources whose
+24-hour recovery deadline has elapsed.
+
+Real-import and cleanup modes require `WORKER_PROCESS_IMPORT_ENABLED=true`.
+The staging scripts rotate the trigger secret, enable the gate for one reviewed
+manual drill, and restore the gate to `false` in a `finally` path. The stable
+staging deployment must remain default-off; no production worker is configured.
 
 Example request (substitute the secret locally; never paste it into source or
 logs):
@@ -50,5 +57,12 @@ logs):
 $headers = @{ "X-Worker-Trigger" = $env:WORKER_TRIGGER_SECRET }
 Invoke-WebRequest -Method Post -Uri "http://localhost:8080/api/v1/worker/trigger" -Headers $headers -ContentType "application/json" -Body '{"mode":"synthetic_benchmark","target_bytes":75497472}'
 ```
+
+Repository operators can use
+`../../scripts/Invoke-StagingWorkerBenchmark.ps1` for the generated 72 MiB and
+330 MiB capacity gates and `../../scripts/Invoke-StagingWorkerRuntime.ps1` for
+the bounded real-import or recovery-expired cleanup drills. Their output is
+limited to counts, stable warning codes, timing, and memory; credentials,
+owner identifiers, object paths, and source content are excluded.
 
 See [`../../docs/ENGINEERING_WORKFLOW.md`](../../docs/ENGINEERING_WORKFLOW.md) for API, migration, logging, and verification controls.

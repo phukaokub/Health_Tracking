@@ -15,8 +15,14 @@ import (
 type WorkerBenchmarkRunner interface {
 	RunSyntheticBenchmark(context.Context, int64) (worker.BenchmarkResult, error)
 }
+type WorkerMultiFileBenchmarkRunner interface {
+	RunSyntheticMultiFileBenchmark(context.Context, int64) (worker.BenchmarkResult, error)
+}
 type WorkerImportRunner interface {
 	ProcessOneImport(context.Context) (worker.Progress, error)
+}
+type WorkerCleanupRunner interface {
+	CleanupRawSources(context.Context) (worker.CleanupProgress, error)
 }
 
 type workerTriggerRequest struct {
@@ -30,6 +36,7 @@ type workerTriggerResponse struct {
 	WorkerAuthenticated bool                   `json:"worker_authenticated"`
 	Benchmark           worker.BenchmarkResult `json:"benchmark"`
 	Progress            worker.Progress        `json:"progress"`
+	Cleanup             worker.CleanupProgress `json:"cleanup"`
 }
 
 func NewWorkerTriggerHandler(triggerSecret string, runner WorkerBenchmarkRunner, allowProcessImport bool) http.Handler {
@@ -71,6 +78,45 @@ func NewWorkerTriggerHandler(triggerSecret string, runner WorkerBenchmarkRunner,
 				return
 			}
 			writeJSON(w, http.StatusOK, workerTriggerResponse{Status: "ok", Mode: request.Mode, WorkerAuthenticated: true, Progress: progress})
+			return
+		}
+		if request.Mode == "cleanup_sources" {
+			cleanupRunner, ok := runner.(WorkerCleanupRunner)
+			if !allowProcessImport || !ok {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "worker_mode_unsupported"})
+				return
+			}
+			ctx, cancel := context.WithTimeout(r.Context(), 240*time.Second)
+			defer cancel()
+			progress, err := cleanupRunner.CleanupRawSources(ctx)
+			if err != nil {
+				writeJSON(w, http.StatusBadGateway, map[string]string{"error": "worker_cleanup_failed"})
+				return
+			}
+			writeJSON(w, http.StatusOK, workerTriggerResponse{
+				Status: "ok", Mode: request.Mode, WorkerAuthenticated: true, Cleanup: progress,
+			})
+			return
+		}
+		if request.Mode == "synthetic_multifile_benchmark" {
+			multiRunner, ok := runner.(WorkerMultiFileBenchmarkRunner)
+			if !ok {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "worker_mode_unsupported"})
+				return
+			}
+			if request.TargetBytes == 0 {
+				request.TargetBytes = worker.DefaultSyntheticMultiFileBenchmarkBytes
+			}
+			ctx, cancel := context.WithTimeout(r.Context(), 240*time.Second)
+			defer cancel()
+			result, err := multiRunner.RunSyntheticMultiFileBenchmark(ctx, request.TargetBytes)
+			if err != nil {
+				writeJSON(w, http.StatusBadGateway, map[string]string{"error": "worker_benchmark_failed"})
+				return
+			}
+			writeJSON(w, http.StatusOK, workerTriggerResponse{
+				Status: "ok", Mode: request.Mode, WorkerAuthenticated: true, Benchmark: result,
+			})
 			return
 		}
 		if request.Mode != "synthetic_benchmark" {

@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	DefaultSyntheticBenchmarkBytes int64 = 72 * 1024 * 1024
-	MinSyntheticBenchmarkBytes     int64 = 1 * 1024 * 1024
+	DefaultSyntheticBenchmarkBytes          int64 = 72 * 1024 * 1024
+	DefaultSyntheticMultiFileBenchmarkBytes int64 = 330 * 1024 * 1024
+	MinSyntheticBenchmarkBytes              int64 = 1 * 1024 * 1024
 )
 
 // BenchmarkResult contains only bounded metrics and stable parser metadata.
@@ -25,6 +26,7 @@ const (
 // credentials.
 type BenchmarkResult struct {
 	ParserVersion         string `json:"parser_version"`
+	FileCount             int    `json:"file_count"`
 	InputBytes            int64  `json:"input_bytes"`
 	NormalizedRecordCount int    `json:"normalized_record_count"`
 	BatchCount            int    `json:"batch_count"`
@@ -66,6 +68,7 @@ func RunSyntheticBenchmark(ctx context.Context, targetBytes int64) (BenchmarkRes
 	runtime.ReadMemStats(&memory)
 	return BenchmarkResult{
 		ParserVersion:         normalization.ParserVersion,
+		FileCount:             1,
 		InputBytes:            maxInt64(firstBytes, secondBytes),
 		NormalizedRecordCount: len(first.Samples) + len(first.SleepSessions) + len(first.Activities) + len(first.Workouts),
 		BatchCount:            batchCount,
@@ -75,6 +78,48 @@ func RunSyntheticBenchmark(ctx context.Context, targetBytes int64) (BenchmarkRes
 		DurationMilliseconds:  time.Since(start).Milliseconds(),
 		HeapInuseBytes:        memory.HeapInuse,
 	}, nil
+}
+
+// RunSyntheticMultiFileBenchmark proves the accepted 330 MiB export shape
+// without violating the parser's 72 MiB per-logical-file bound.
+func RunSyntheticMultiFileBenchmark(ctx context.Context, targetBytes int64) (BenchmarkResult, error) {
+	if targetBytes < DefaultSyntheticBenchmarkBytes || targetBytes > DefaultSyntheticMultiFileBenchmarkBytes {
+		return BenchmarkResult{}, errors.New("synthetic multi-file benchmark size is out of bounds")
+	}
+	start := time.Now()
+	fileTargets := splitSyntheticFileTargets(targetBytes)
+	result := BenchmarkResult{
+		ParserVersion:         normalization.ParserVersion,
+		FileCount:             len(fileTargets),
+		ResumedFromBatch:      1,
+		DeterministicRecovery: true,
+	}
+	for _, fileTarget := range fileTargets {
+		first, firstBytes, err := parseSyntheticFixture(ctx, fileTarget)
+		if err != nil {
+			return BenchmarkResult{}, err
+		}
+		second, secondBytes, err := parseSyntheticFixture(ctx, fileTarget)
+		if err != nil {
+			return BenchmarkResult{}, err
+		}
+		firstRecords := len(CanonicalRecords(first))
+		secondRecords := len(CanonicalRecords(second))
+		deterministic := normalizedDigest(first) == normalizedDigest(second) && firstRecords == secondRecords
+		if firstRecords == 0 || !deterministic {
+			return BenchmarkResult{}, errors.New("synthetic multi-file recovery failed")
+		}
+		result.InputBytes += maxInt64(firstBytes, secondBytes)
+		result.NormalizedRecordCount += firstRecords
+		result.BatchCount += (firstRecords + MaxBatchRows - 1) / MaxBatchRows
+		result.WarningCount += len(first.Warnings)
+		result.DeterministicRecovery = result.DeterministicRecovery && deterministic
+	}
+	var memory runtime.MemStats
+	runtime.ReadMemStats(&memory)
+	result.DurationMilliseconds = time.Since(start).Milliseconds()
+	result.HeapInuseBytes = memory.HeapInuse
+	return result, nil
 }
 
 func parseSyntheticFixture(ctx context.Context, targetBytes int64) (normalization.Result, int64, error) {
@@ -116,30 +161,62 @@ func generateSyntheticJSON(ctx context.Context, writer *io.PipeWriter, targetByt
 	if err := write(`{"records":[`); err != nil {
 		return written, err
 	}
-	// Leave room for the fixed JSON fields, commas, and the closing delimiter so
-	// the generated stream stays below the logical-file cap.
-	paddingBytes := int(targetBytes/int64(normalization.MaxRecordCount)) - 600
-	if paddingBytes < 32 {
-		paddingBytes = 32
+	recordCount := int(targetBytes / 2048)
+	if recordCount < 1 {
+		recordCount = 1
 	}
-	for index := 0; index < normalization.MaxRecordCount; index++ {
+	if recordCount > normalization.MaxRecordCount {
+		recordCount = normalization.MaxRecordCount
+	}
+	fixedBytes := int64(len(`{"records":[]}`))
+	for index := 0; index < recordCount; index++ {
+		if index > 0 {
+			fixedBytes++
+		}
+		fixedBytes += int64(len(syntheticRecord(index, "")))
+	}
+	if fixedBytes > targetBytes {
+		return written, errors.New("synthetic benchmark target is too small")
+	}
+	paddingTotal := targetBytes - fixedBytes
+	paddingBytes := paddingTotal / int64(recordCount)
+	paddingRemainder := paddingTotal % int64(recordCount)
+	for index := 0; index < recordCount; index++ {
 		if index > 0 {
 			if err := write(","); err != nil {
 				return written, err
 			}
 		}
-		record := fmt.Sprintf(`{"type":"heart_rate","record_id":"synthetic-%05d","started_at":"2026-01-02T03:04:05Z","unit":"bpm","value":72,"padding":"%s"}`, index, strings.Repeat("x", paddingBytes))
+		recordPadding := paddingBytes
+		if int64(index) < paddingRemainder {
+			recordPadding++
+		}
+		record := syntheticRecord(index, strings.Repeat("x", int(recordPadding)))
 		if err := write(record); err != nil {
 			return written, err
-		}
-		if written+2 >= targetBytes {
-			break
 		}
 	}
 	if err := write("]}"); err != nil {
 		return written, err
 	}
 	return written, nil
+}
+
+func syntheticRecord(index int, padding string) string {
+	return fmt.Sprintf(`{"type":"heart_rate","record_id":"synthetic-%05d","started_at":"2026-01-02T03:04:05Z","unit":"bpm","value":72,"padding":"%s"}`, index, padding)
+}
+
+func splitSyntheticFileTargets(totalBytes int64) []int64 {
+	targets := make([]int64, 0, (totalBytes+normalization.MaxInputBytes-1)/normalization.MaxInputBytes)
+	for totalBytes > 0 {
+		next := totalBytes
+		if next > normalization.MaxInputBytes {
+			next = normalization.MaxInputBytes
+		}
+		targets = append(targets, next)
+		totalBytes -= next
+	}
+	return targets
 }
 
 func normalizedDigest(result normalization.Result) string {
