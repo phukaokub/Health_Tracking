@@ -69,7 +69,8 @@ test("ZIP upload pauses, survives refresh and queues exactly one owner-scoped jo
   await selectZIP(page, archive);
   await expect(page.getByText(/1 supported files/)).toBeVisible();
   await page.getByRole("button", { name: "Upload files for import" }).click();
-  await expect(page.getByText("Upload verified and queued. Parsing begins in Step 4.")).toBeVisible({ timeout: 40_000 });
+  await expect(page.getByText("Queued for processing")).toBeVisible({ timeout: 40_000 });
+  await page.screenshot({ path: "test-results/browser/owner-visible-processing.png", fullPage: true });
 
   const run = await latestRun();
   createdImportIDs.add(run.id);

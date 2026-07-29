@@ -5,12 +5,12 @@
 - Change ID: STEP-004
 - Milestone/work packages: Step 4 / 4A-4J
 - Owner: repository maintainer with Codex implementation support
-- Status: in progress; local parser, scalar/sleep/activity/workout slices and worker lease/checkpoint/retry/cleanup foundation are merged. This branch adds a staging-only authenticated synthetic trigger and benchmark; real Storage-backed execution remains gated.
+- Status: in progress; local parser, scalar/sleep/activity/workout slices, worker lease/checkpoint/retry/cleanup foundation, staging trigger, and owner-visible processing status are merged on separate slices. Real Storage-backed execution remains gated.
 - Baseline commit: `b79d63ef3cbf85d9584234d7d92802d26d9b2112` (PR #9 merge)
-- Branch: `codex/step-4-manual-trigger-benchmark`
+- Branch: `codex/step-4-owner-visible-progress`
 - Related records: [`../IMPLEMENTATION_STEPS.md`](../IMPLEMENTATION_STEPS.md), [`../DELIVERY_TRACKER.md`](../DELIVERY_TRACKER.md), [`0004-source-coverage-matrix.md`](0004-source-coverage-matrix.md), ADR 0005 (proposed)
 - Target environments: local, CI, stable staging; production is explicitly excluded
-- Last updated: 2026-07-20
+- Last updated: 2026-07-29
 
 ## Outcome
 
@@ -228,7 +228,7 @@ Threats and controls:
 | 4F | Worker identity, claim/lease/renew/checkpoint/persist/finish RPCs and Storage read | ADR 0005, 4C | Cross-owner, stale lease, replay, credential tests | Local foundation merged; real Storage/persistence adapter pending |
 | 4G | Retry/dead-letter/cancel/raw-part retention coordination | 4D-4F | Crash/restart, batch rollback, deletion races | Local 24-hour cleanup contract in progress; hosted drill pending |
 | 4H | Runtime trigger and 72 MiB performance/egress benchmark | 4F, staging | Time/memory/egress report; provider failure drill | Synthetic-only trigger implemented; hosted deployment/benchmark evidence pending |
-| 4I | Owner-visible progress/warnings and safe operational diagnostics | 4D-4G | API/browser accessibility and redaction tests | Planned |
+| 4I | Owner-visible progress/warnings and safe operational diagnostics | 4D-4G | API/browser accessibility and redaction tests | Local polling/status UI implemented; unit and Chromium evidence green |
 | 4J | Staging synthetic full job, cleanup, rollback, and user acceptance | 4A-4I | Release-candidate evidence and matrix approval | Planned |
 
 Suggested PR sequence: 4A+fixtures; 4B+4C schema; 4D mappings; 4E repair; 4F worker boundary; 4G recovery; 4H+4I runtime/UX; 4J evidence. Each merge leaves the worker trigger disabled until 4F security and 4H capacity gates pass.
@@ -284,3 +284,4 @@ Required before Step 4 completion:
 | --- | --- | --- | --- |
 | 2026-07-17 | Initial detailed Step 4 plan, work packages, limits, environment/secret inventory, test matrix, and rollout gates | Makes worker/provider/security and parser/data choices explicit before implementation | Proposed |
 | 2026-07-20 | Added staging-only manual `synthetic_benchmark` trigger and redacted 72 MiB deterministic recovery benchmark | Enables safe runtime verification without reading or persisting real import data; real Storage/persistence adapter remains a separate bounded slice | User-approved worker identity, trigger secret, and 24-hour recovery window |
+| 2026-07-29 | Added owner-visible processing status polling to the import page | Renders only bounded counts, terminal state copy, and allowlisted warning summaries; source names, paths, and health values remain excluded | Local frontend tests and Chromium UX evidence green |
