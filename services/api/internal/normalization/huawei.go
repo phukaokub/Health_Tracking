@@ -52,14 +52,17 @@ type Sample struct {
 	Value                 string    `json:"value"`
 	DedupeKey             string    `json:"dedupe_key"`
 	ParserVersion         string    `json:"parser_version"`
+	CanonicalDay          string    `json:"canonical_day,omitempty"`
+	TimezoneResolution    string    `json:"timezone_resolution,omitempty"`
 }
 
 type Result struct {
-	Samples       []Sample       `json:"samples"`
-	SleepSessions []SleepSession `json:"sleep_sessions"`
-	Activities    []Activity     `json:"activities"`
-	Workouts      []Workout      `json:"workouts"`
-	Warnings      []Warning      `json:"warnings"`
+	Samples          []Sample          `json:"samples"`
+	SleepSessions    []SleepSession    `json:"sleep_sessions"`
+	Activities       []Activity        `json:"activities"`
+	Workouts         []Workout         `json:"workouts"`
+	Warnings         []Warning         `json:"warnings"`
+	LegacyXLSQuality *LegacyXLSQuality `json:"legacy_xls_quality,omitempty"`
 }
 type SleepSession struct {
 	SourceRecordHash string       `json:"source_record_hash"`

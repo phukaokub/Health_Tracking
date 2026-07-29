@@ -47,6 +47,16 @@ export type ImportSnapshot = {
   normalization?: {
     normalized_record_count: number;
     warning_codes?: string[];
+    legacy_backfill?: {
+      approved_sheet_count: number;
+      excluded_sheet_count: number;
+      unknown_sheet_count: number;
+      covered_date_count: number;
+      candidate_metric_count: number;
+      inserted_metric_count: number;
+      conflict_metric_count: number;
+      ambiguous_cell_count: number;
+    } | null;
   } | null;
 };
 

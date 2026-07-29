@@ -30,6 +30,7 @@ HUAWEI_HEALTH_*/
 *.zip
 *.xls
 *.xlsx
+!services/api/internal/normalization/testdata/huawei_legacy_sanitized.xls
 
 # OS/editor
 .DS_Store

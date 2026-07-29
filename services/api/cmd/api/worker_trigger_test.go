@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/phukaokub/Health_Tracking/services/api/internal/normalization"
 	"github.com/phukaokub/Health_Tracking/services/api/internal/supabase"
 )
 
@@ -43,6 +44,9 @@ func (runtime *fakeWorkerRuntime) ReadWorkerPart(_ context.Context, _ supabase.W
 }
 func (runtime *fakeWorkerRuntime) PersistWorkerBatch(_ context.Context, _ supabase.WorkerIdentity, _ supabase.WorkerLease, _ string, sequence int, _ []map[string]any, _ []string) error {
 	runtime.batchSequences = append(runtime.batchSequences, sequence)
+	return nil
+}
+func (runtime *fakeWorkerRuntime) PersistLegacyXLSQuality(context.Context, supabase.WorkerIdentity, supabase.WorkerLease, string, normalization.LegacyXLSQuality) error {
 	return nil
 }
 func (runtime *fakeWorkerRuntime) CompleteWorkerFile(_ context.Context, _ supabase.WorkerIdentity, _ supabase.WorkerLease, fileID string, _ int64, _ []string) error {

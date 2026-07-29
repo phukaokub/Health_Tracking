@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/phukaokub/Health_Tracking/services/api/internal/imports"
+	"github.com/phukaokub/Health_Tracking/services/api/internal/normalization"
 )
 
 const importBucket = "health-imports"
@@ -54,10 +55,13 @@ type WorkerSourcePart struct {
 }
 
 type WorkerSourceFile struct {
-	ID            string             `json:"id"`
-	LogicalBytes  int64              `json:"logical_bytes"`
-	ContentSHA256 string             `json:"content_sha256"`
-	Parts         []WorkerSourcePart `json:"parts"`
+	ID                string             `json:"id"`
+	LogicalBytes      int64              `json:"logical_bytes"`
+	ContentSHA256     string             `json:"content_sha256"`
+	SourceFamily      string             `json:"source_family"`
+	ContentKind       string             `json:"content_kind"`
+	TimezoneCandidate string             `json:"timezone_candidate"`
+	Parts             []WorkerSourcePart `json:"parts"`
 }
 
 type WorkerCleanupCandidate struct {
@@ -248,6 +252,15 @@ func (client *Client) PersistWorkerBatch(ctx context.Context, identity WorkerIde
 	return client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_persist_normalized_batch", map[string]any{
 		"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration, "p_import_file_id": fileID,
 		"p_batch_sequence": batchSequence, "p_records": records, "p_warning_codes": warningCodes,
+	}, nil)
+}
+
+func (client *Client) PersistLegacyXLSQuality(ctx context.Context, identity WorkerIdentity, lease WorkerLease, fileID string, quality normalization.LegacyXLSQuality) error {
+	return client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_persist_legacy_xls_quality", map[string]any{
+		"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration, "p_import_file_id": fileID,
+		"p_approved_sheet_count": quality.ApprovedSheetCount, "p_excluded_sheet_count": quality.ExcludedSheetCount,
+		"p_unknown_sheet_count": quality.UnknownSheetCount, "p_covered_date_count": quality.CoveredDateCount,
+		"p_candidate_metric_count": quality.CandidateMetricCount, "p_ambiguous_cell_count": quality.AmbiguousCellCount,
 	}, nil)
 }
 

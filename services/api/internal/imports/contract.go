@@ -325,8 +325,20 @@ type JobSnapshot struct {
 // NormalizationSnapshot is the owner-visible, privacy-safe Step 4 processing
 // contract. It deliberately exposes counts and stable codes only.
 type NormalizationSnapshot struct {
-	NormalizedRecordCount int      `json:"normalized_record_count"`
-	WarningCodes          []string `json:"warning_codes,omitempty"`
+	NormalizedRecordCount int                     `json:"normalized_record_count"`
+	WarningCodes          []string                `json:"warning_codes,omitempty"`
+	LegacyBackfill        *LegacyBackfillSnapshot `json:"legacy_backfill,omitempty"`
+}
+
+type LegacyBackfillSnapshot struct {
+	ApprovedSheetCount   int `json:"approved_sheet_count"`
+	ExcludedSheetCount   int `json:"excluded_sheet_count"`
+	UnknownSheetCount    int `json:"unknown_sheet_count"`
+	CoveredDateCount     int `json:"covered_date_count"`
+	CandidateMetricCount int `json:"candidate_metric_count"`
+	InsertedMetricCount  int `json:"inserted_metric_count"`
+	ConflictMetricCount  int `json:"conflict_metric_count"`
+	AmbiguousCellCount   int `json:"ambiguous_cell_count"`
 }
 
 type Snapshot struct {

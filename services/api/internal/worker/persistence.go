@@ -29,6 +29,10 @@ type PartOpener interface {
 // Every part's length and digest are verified while it is read; no raw source
 // is buffered, persisted, or returned on error.
 func ParsePrivateParts(ctx context.Context, opener PartOpener, parts []SourcePart) (normalization.Result, error) {
+	return ParsePrivatePartsForSource(ctx, opener, parts, "huawei-json", "UTC")
+}
+
+func ParsePrivatePartsForSource(ctx context.Context, opener PartOpener, parts []SourcePart, sourceFamily, timezone string) (normalization.Result, error) {
 	if opener == nil || len(parts) == 0 {
 		return normalization.Result{}, errors.New("source_part_invalid")
 	}
@@ -39,7 +43,16 @@ func ParsePrivateParts(ctx context.Context, opener PartOpener, parts []SourcePar
 		}
 	}
 	reader := &partStream{ctx: ctx, opener: opener, parts: parts}
-	result, err := normalization.ParseHuaweiJSON(reader)
+	var result normalization.Result
+	var err error
+	switch sourceFamily {
+	case "huawei-json":
+		result, err = normalization.ParseHuaweiJSON(reader)
+	case "legacy-xls":
+		result, err = normalization.ParseLegacyXLS(reader, timezone)
+	default:
+		err = &normalization.SafeError{Code: "source_schema_unsupported"}
+	}
 	closeErr := reader.Close()
 	if err != nil {
 		return normalization.Result{}, err
@@ -119,7 +132,7 @@ func (stream *partStream) Close() error {
 func CanonicalRecords(result normalization.Result) []map[string]any {
 	records := make([]map[string]any, 0, len(result.Samples)+len(result.SleepSessions)+len(result.Activities)+len(result.Workouts))
 	for _, value := range result.Samples {
-		records = append(records, map[string]any{"kind": "sample", "source_family": value.SourceFamily, "source_type": value.SourceType, "source_record_hash": value.SourceRecordHash, "started_at": value.StartedAt.Format("2006-01-02T15:04:05Z07:00"), "ended_at": value.EndedAt.Format("2006-01-02T15:04:05Z07:00"), "unit": value.Unit, "source_unit": value.SourceUnit, "value": value.Value, "dedupe_key": value.DedupeKey, "parser_version": value.ParserVersion})
+		records = append(records, map[string]any{"kind": "sample", "source_family": value.SourceFamily, "source_type": value.SourceType, "source_record_hash": value.SourceRecordHash, "started_at": value.StartedAt.Format("2006-01-02T15:04:05Z07:00"), "ended_at": value.EndedAt.Format("2006-01-02T15:04:05Z07:00"), "unit": value.Unit, "source_unit": value.SourceUnit, "value": value.Value, "dedupe_key": value.DedupeKey, "parser_version": value.ParserVersion, "canonical_day": value.CanonicalDay, "timezone_resolution": value.TimezoneResolution})
 	}
 	for _, value := range result.SleepSessions {
 		records = append(records, map[string]any{"kind": "sleep_session", "source_record_hash": value.SourceRecordHash, "started_at": value.StartedAt.Format("2006-01-02T15:04:05Z07:00"), "ended_at": value.EndedAt.Format("2006-01-02T15:04:05Z07:00"), "duration_seconds": value.DurationSeconds, "dedupe_key": value.DedupeKey, "parser_version": value.ParserVersion})

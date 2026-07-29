@@ -8,6 +8,11 @@ const SAFE_WARNING_LABELS: Record<string, string> = {
   source_schema_unsupported: "One source format was not supported.",
   timestamp_invalid: "Some records had unusable timestamps and were skipped.",
   unit_unsupported: "Some measurements used unsupported units and were skipped.",
+  xls_cell_ambiguous: "Some spreadsheet cells were ambiguous and were skipped.",
+  xls_date_ambiguous: "Some spreadsheet dates were ambiguous and were skipped.",
+  xls_date_column_missing: "An approved spreadsheet sheet had no supported date column.",
+  xls_sheet_excluded: "Unrelated spreadsheet sheets were excluded.",
+  xls_sheet_unknown: "Unknown spreadsheet sheets were skipped.",
 };
 
 export function processingProgress(snapshot: ImportSnapshot): number | null {

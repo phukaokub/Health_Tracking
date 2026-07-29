@@ -17,6 +17,7 @@ test("scanner policy classifies JSON and legacy spreadsheets without raw path ou
     included: true,
   });
   assert.equal(classifySourcePath("export/history.xls").sourceFamily, "legacy-xls");
+  assert.equal(classifySourcePath("export/history.xlsx").included, false);
   assert.equal(classifySourcePath("export/readme.txt").included, false);
 });
 

@@ -25,10 +25,10 @@ export function classifySourcePath(path: string): SourceClassification {
   if (extension === "json") {
     return { sourceFamily: "huawei-json", contentKind: "application/json", included: true };
   }
-  if (extension === "xls" || extension === "xlsx") {
+  if (extension === "xls") {
     return {
       sourceFamily: "legacy-xls",
-      contentKind: extension === "xls" ? "application/vnd.ms-excel" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      contentKind: "application/vnd.ms-excel",
       included: true,
     };
   }

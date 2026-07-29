@@ -10,6 +10,9 @@ func TestNormalizationSnapshotDoesNotContainPayloadFields(t *testing.T) {
 	snapshot := Snapshot{Normalization: &NormalizationSnapshot{
 		NormalizedRecordCount: 2,
 		WarningCodes:          []string{"sensitive_record_excluded"},
+		LegacyBackfill: &LegacyBackfillSnapshot{
+			CoveredDateCount: 2, InsertedMetricCount: 4, ConflictMetricCount: 1,
+		},
 	}, Job: &JobSnapshot{
 		ProcessedFileCount:    1,
 		NormalizedRecordCount: 2,
