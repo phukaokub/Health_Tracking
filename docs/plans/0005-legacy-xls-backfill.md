@@ -5,7 +5,7 @@
 - Change ID: 0005
 - Milestone/work package: Step 5 - Legacy XLS allowlisted backfill
 - Owner: repository maintainers
-- Status: accepted; implementation merged; staging verification complete; follow-up fix pending review
+- Status: done; implementation and staging verification merged in PR #63
 - Baseline commit: `57cae63`
 - Branch: `codex/step5-legacy-xls-backfill`
 - Related issue/PR/ADR: PR pending
@@ -101,7 +101,9 @@ mutation remain excluded.
   import file/quality rows, Auth account, and local state were removed, with
   the import tombstone in `deleted` state; the trigger gate was restored to
   false. No workbook was sent or committed.
-- PR #62 required CI passed: documentation, API, web, and Supabase schema/RLS/browser.
+- PR #62 implementation CI passed, and PR #63 follow-up CI passed Documentation,
+  API, Web, and Supabase schema/RLS/browser checks before squash merge as
+  `fb292e2`.
 
 ## Change history
 
@@ -109,4 +111,5 @@ mutation remain excluded.
 | --- | --- | --- | --- |
 | 2026-07-30 | First bounded Step 5 slice | Local/CI source, schema, API, UI | User requested implementation |
 | 2026-07-30 | Add repository-wide interactive evidence and private actual-workbook staging gate | Adds local-browser/staging screenshot or redacted-log evidence; no production/provider configuration change | User requested verification standard; staging verification completed with redacted log evidence |
-| 2026-07-30 | Actual-workbook compatibility repair and staging gate | Tightens BIFF8 SST preflight against OLE-container false positives and raises the bounded sheet cap to 128 for the observed Huawei export; private staging result is recorded above | Follow-up source change requires review/merge; no production mutation |
+| 2026-07-30 | Actual-workbook compatibility repair and staging gate | Tightens BIFF8 SST preflight against OLE-container false positives and raises the bounded sheet cap to 128 for the observed Huawei export; private staging result is recorded above | Follow-up source change merged in PR #63; no production mutation |
+| 2026-08-05 | Step 5 completion merge | Follow-up parser fix, verification-standard evidence, and private staging result merged in PR #63 | Step 5 complete for the approved local, CI, browser, and non-production staging scope |
