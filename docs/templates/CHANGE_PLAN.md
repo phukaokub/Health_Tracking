@@ -148,6 +148,11 @@ Each package should be reviewable and keep `main` safe. State how partially deli
 | Failure/recovery | | | | |
 
 Include performance/memory/load checks when size or concurrency matters. Use generated or explicitly sanitized fixtures only.
+Every verification row must include one real local browser/computer or
+non-production staging observation and a privacy-safe screenshot or redacted
+application-log location. Record the environment, candidate commit/release,
+expected versus observed result, and cleanup result; if access or a required
+source is missing, mark the verification pending instead of inferring success.
 
 ## Observability and support
 
@@ -174,7 +179,7 @@ Include performance/memory/load checks when size or concurrency matters. Use gen
 
 - Files/migrations/contracts changed:
 - Commands and results:
-- Screenshots/walkthrough:
+- Interactive screenshot or redacted application-log evidence:
 - Provider-side verification (no values):
 - Privacy/security result:
 - Known limitations/deferred work:

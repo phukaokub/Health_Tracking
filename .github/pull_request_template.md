@@ -23,7 +23,8 @@ List commands and concise results. Do not paste secrets, full environment output
 - [ ] Go format/vet/tests as applicable.
 - [ ] Migration reset/lint and owner/cross-user policy tests as applicable.
 - [ ] Unit/contract/E2E/provider failure paths as applicable.
-- [ ] Browser walkthrough/screenshots for user-visible changes.
+- [ ] Real interactive verification completed in a local browser/computer or non-production staging for every verification claim.
+- [ ] Privacy-safe screenshot of the final UI result or redacted application-log evidence is attached/linked, with environment, candidate, expected-versus-observed result, and cleanup recorded.
 - [ ] Hosted provider configuration verified separately when claimed.
 
 Evidence:

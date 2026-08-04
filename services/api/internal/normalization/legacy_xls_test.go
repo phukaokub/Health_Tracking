@@ -62,6 +62,7 @@ func TestParseLegacyXLSRejectsOversizedSharedStringDeclaration(t *testing.T) {
 		if data[offset] == 0xfc && data[offset+1] == 0x00 {
 			length := int(binary.LittleEndian.Uint16(data[offset+2 : offset+4]))
 			if length >= 8 && offset+4+length <= len(data) {
+				binary.LittleEndian.PutUint32(data[offset+4:offset+8], maxLegacySSTEntries+1)
 				binary.LittleEndian.PutUint32(data[offset+8:offset+12], maxLegacySSTEntries+1)
 				changed = true
 				break

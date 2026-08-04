@@ -150,6 +150,28 @@ The change plan selects checks from this matrix. Commands are run from the ownin
 | Parser/normalization | Sanitized fixtures, malformed input, dedupe, deterministic output | Coverage/provenance review; no raw payload retained |
 | Production release | Full CI, staging smoke, migration review, release record | Production smoke, monitoring check, rollback target recorded |
 
+### Required interactive evidence for every verification task
+
+Every task that claims a verification result must include one real interactive
+observation in a local browser/computer session or in non-production staging.
+Use local for local-only behavior; use staging when the claim involves Auth,
+Storage, database/RLS, hosted deployment, or an integration boundary. Unit,
+integration, CI, and static checks remain necessary, but they do not replace
+this interactive evidence.
+
+The verification handoff must capture either:
+
+- a screenshot of the final user-visible state, including the safe result or
+  warning counts; or
+- a redacted application-log excerpt when the result is not exposed in a UI.
+
+The evidence record must name the environment, candidate commit/release,
+scenario, expected versus observed result, and cleanup result. Screenshots and
+logs must exclude workbooks, source bytes, raw health values, filenames or
+paths that identify a person, email addresses, tokens, and credentials. A
+missing browser session, staging access, or required source file is a pending
+verification blocker; do not infer success from automated checks alone.
+
 The current CI workflow enforces local-document links/credential-pattern checks, web lint/typecheck/build, Go format/vet/test, and local Supabase migration/lint/pgTAP checks. Do not describe parser, browser E2E, dependency/vulnerability, or repository-wide secret-scan gates as active until their workflows actually exist. Add those gates incrementally with the milestone that needs them, then enforce them before production in Step 8.
 
 ## Review and evidence
@@ -157,14 +179,14 @@ The current CI workflow enforces local-document links/credential-pattern checks,
 A pull request should make review possible without reconstructing the work from chat. Attach or link:
 
 - the accepted outcome and change plan;
-- affected contracts, migrations, integration/configuration delta, and screenshots when useful;
+- affected contracts, migrations, integration/configuration delta, and the required screenshot or redacted log evidence;
 - commands run and concise pass/fail results;
 - security/privacy impact and explicit cross-user denial evidence when relevant;
 - known limitations, deferred work, and an issue/tracker entry for each required follow-up;
 - rollout, rollback, and feature-disable instructions;
 - exact provider-side checks completed, without credential values.
 
-CI output is evidence, not the only evidence. User-visible flows and provider-console configuration need direct verification.
+CI output is evidence, not the only evidence. User-visible flows and provider-console configuration need direct verification, and every verification task must satisfy the interactive-evidence rule above.
 
 ## Definition of Done
 
