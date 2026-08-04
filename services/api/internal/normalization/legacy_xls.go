@@ -18,7 +18,7 @@ const (
 	LegacyXLSParserVersion = "huawei-legacy-xls-v1"
 	LegacyXLSSourceFamily  = "huawei_legacy_xls"
 	MaxLegacyXLSBytes      = 16 * 1024 * 1024
-	maxLegacySheets        = 64
+	maxLegacySheets        = 128
 	maxLegacyRows          = 100_000
 	maxLegacyColumns       = 128
 	maxLegacySSTEntries    = 100_000
@@ -204,7 +204,16 @@ func preflightBIFF8(data []byte) error {
 		if recordLength < 8 || offset+4+recordLength > len(data) {
 			continue
 		}
+		total := binary.LittleEndian.Uint32(data[offset+4 : offset+8])
 		unique := binary.LittleEndian.Uint32(data[offset+8 : offset+12])
+		// The workbook stream lives inside an OLE container, so arbitrary
+		// payload bytes can resemble an SST record header. Ignore candidates
+		// whose declaration is internally impossible before applying the
+		// resource limit; otherwise valid workbooks can be rejected by a false
+		// xls_string_limit signal from container data.
+		if unique > total {
+			continue
+		}
 		if unique > maxLegacySSTEntries {
 			return &SafeError{Code: "xls_string_limit"}
 		}

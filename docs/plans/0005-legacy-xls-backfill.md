@@ -5,11 +5,11 @@
 - Change ID: 0005
 - Milestone/work package: Step 5 - Legacy XLS allowlisted backfill
 - Owner: repository maintainers
-- Status: accepted; merge pending
+- Status: accepted; implementation merged; staging verification complete; follow-up fix pending review
 - Baseline commit: `57cae63`
 - Branch: `codex/step5-legacy-xls-backfill`
 - Related issue/PR/ADR: PR pending
-- Target environments: local and CI
+- Target environments: local, CI, and non-production staging verification
 - Requested/last updated date: 2026-07-30
 
 ## Outcome
@@ -28,7 +28,8 @@ metric/day conflict, and the UI exposes only safe counts and warning codes.
 ### Non-goals
 
 - `.xlsx`, dashboard analysis, clinical suggestions, ECG/RRI, GPS/routes.
-- Hosted-provider configuration, production mutation, or Step 3's deferred suite.
+- Hosted-provider configuration beyond the explicitly approved non-production
+  staging verification, production mutation, or Step 3's deferred suite.
 
 ## Design and contracts
 
@@ -50,7 +51,7 @@ or logged.
 
 ## Security, privacy, and dependency review
 
-- BIFF8 is capped at 16 MiB, 64 sheets, 100,000 rows, 128 columns, and 100,000
+- BIFF8 is capped at 16 MiB, 128 sheets, 100,000 rows, 128 columns, and 100,000
   shared strings; malformed input and panics become stable safe codes.
 - The fixture is generated from synthetic dates/values and scanned for
   identity, credential, ECG/RRI, GPS, and route markers.
@@ -67,6 +68,12 @@ or logged.
 - pgTAP: schema/RLS/grants, worker RPC, count invariants, canonical day,
   JSON-wins precedence, deletion cascade, and owner isolation.
 - Run the full affected local matrix once, then one PR and required CI.
+- Per the repository verification standard, exercise the import in a real
+  local browser/computer session or non-production staging and capture a
+  screenshot of the safe count result or a redacted application-log excerpt.
+- For the user gate, privately upload one actual Huawei BIFF8 `.xls` export
+  through staging, record only inserted/conflicted/excluded (and any exposed
+  ambiguous) counts, verify cleanup, and never commit or send the workbook.
 
 ## Rollout and rollback
 
@@ -85,7 +92,15 @@ mutation remain excluded.
   acceptance tests passed.
 - Database: clean local reset and all 148 pgTAP assertions passed; schema lint
   reported no errors.
-- Documentation checks passed. No hosted or production resource was changed.
+- Documentation checks passed. A private actual Huawei BIFF8 `.xls` export was
+  processed through non-production staging at `POST /api/v1/worker/trigger`
+  using the server-only trigger gate. The redacted application log reported
+  one file processed, zero normalized records, and warnings for excluded and
+  unknown sheets. The owner-scoped quality result was inserted 0, conflicted
+  0, excluded sheets 7, unknown sheets 67, ambiguous 0. The Storage object,
+  import file/quality rows, Auth account, and local state were removed, with
+  the import tombstone in `deleted` state; the trigger gate was restored to
+  false. No workbook was sent or committed.
 - PR #62 required CI passed: documentation, API, web, and Supabase schema/RLS/browser.
 
 ## Change history
@@ -93,3 +108,5 @@ mutation remain excluded.
 | Date | Proposed delta | Impact | Decision/approver |
 | --- | --- | --- | --- |
 | 2026-07-30 | First bounded Step 5 slice | Local/CI source, schema, API, UI | User requested implementation |
+| 2026-07-30 | Add repository-wide interactive evidence and private actual-workbook staging gate | Adds local-browser/staging screenshot or redacted-log evidence; no production/provider configuration change | User requested verification standard; staging verification completed with redacted log evidence |
+| 2026-07-30 | Actual-workbook compatibility repair and staging gate | Tightens BIFF8 SST preflight against OLE-container false positives and raises the bounded sheet cap to 128 for the observed Huawei export; private staging result is recorded above | Follow-up source change requires review/merge; no production mutation |

@@ -290,7 +290,7 @@ Outcome: selected legacy `.xls` reports fill missing historical days without ove
 - deterministic dedupe, provenance, parser version, retry/checkpoint behavior, and exclusion tests for membership, purchase, card, ranking, agreement, and unrelated sheets;
 - data-quality report comparing covered dates and conflicts without exposing health values in logs/evidence.
 
-Verification includes approved/excluded/unknown sheet fixtures, malformed cells/workbooks, duplicate import, precedence conflict, timezone/date boundaries, memory limits, cancellation/retry, and staging job execution.
+Verification includes approved/excluded/unknown sheet fixtures, malformed cells/workbooks, duplicate import, precedence conflict, timezone/date boundaries, memory limits, cancellation/retry, and staging job execution. Under the repository-wide verification standard, the result must also be observed in a real local browser/computer session or non-production staging and captured as a privacy-safe screenshot or redacted application log. The Step 5 user gate additionally requires one privately executed actual Huawei BIFF8 `.xls` export through staging with inserted, conflicted, excluded, and any exposed ambiguous counts recorded; the workbook itself must remain local and unshared.
 
 Exit: approved sheets backfill only missing history, provenance and warnings are visible, excluded sheets never persist, and a dependency/offboarding path is documented.
 
