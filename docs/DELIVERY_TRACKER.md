@@ -1,15 +1,16 @@
 # Delivery tracker
 
-Last reviewed: 2026-08-05
+Last reviewed: 2026-08-15
 
 This is the living status document. Update it at each meaningful handoff, accepted scope change, new blocker, pull-request transition, and release. Product intent belongs in `PROJECT_PLAN.md`; detailed change design belongs in a change plan.
 
 ## Current release
 
 - Release target: private non-clinical V1.
-- Current gate: Step 5 implementation and follow-up verification fix are squash-merged in PR #63; local, CI, browser, and private staging evidence are green. Step 3's hosted synthetic two-user, quota/outage, and cleanup suite remains explicitly deferred and is out of scope.
-- Current branch: `main`.
-- Active milestone: Step 5 now has exact-sheet BIFF8 parsing, deterministic daily identities, JSON-wins precedence, owner-scoped quality counts, and privacy/malformed-input coverage. The clean local matrix passed (Go, web build/unit, 148 pgTAP assertions, schema lint, and 2 browser import tests). The repository-wide verification rule now requires local-browser/computer or non-production-staging evidence plus a privacy-safe screenshot or redacted log for every verification claim. Step 4 remains complete; automatic scheduling, production resources, ECG/RRI, GPS/routes, and later milestones remain excluded.
+- Current gate: Step 6 implementation is complete on the local branch with local schema, RLS, web, and browser evidence green; user acceptance and pull-request review remain pending. Step 5 is squash-merged in PR #63; Step 3's hosted synthetic two-user, quota/outage, and cleanup suite remains explicitly deferred and is out of scope.
+- Current branch: `codex/step-6-summary-goals`.
+- Active milestone: Step 6 adds the first summary, owner-scoped goals, timezone confirmation, bounded 7/28/90-day dashboard/report views, explicit empty/partial states, and safe coverage/source summaries. The focused local matrix passed (web typecheck/lint/build, clean Supabase reset, schema lint, 164 pgTAP assertions, and one synthetic-account browser flow). Production resources, provider changes, automatic scheduling, ECG/RRI, GPS/routes, and Step 7 remain excluded.
+- Active Step 6 plan: [`plans/0006-summary-goals-dashboard-reports.md`](plans/0006-summary-goals-dashboard-reports.md).
 - Active Step 5 plan: [`plans/0005-legacy-xls-backfill.md`](plans/0005-legacy-xls-backfill.md).
 - Active Step 4 plan: [`plans/0004-huawei-json-normalization.md`](plans/0004-huawei-json-normalization.md).
 - The Go foreground access decision is accepted in [`decisions/0002-foreground-supabase-access.md`](decisions/0002-foreground-supabase-access.md). Preview isolation is required before hosted verification (3I).
@@ -25,7 +26,7 @@ This is the living status document. Update it at each meaningful handoff, accept
 | 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | Handoff PR #16 open | User accepted local browser evidence plus hosted Google Auth and authenticated upload-to-queue. Hosted synthetic two-user RLS, quota/outage, and cleanup smoke is deferred and remains a recorded operational risk |
 | 4 | Streaming Huawei JSON parsing, normalization, provenance, and dedupe | Done | PRs #17-#27 and completion PR #61 cover generated fixtures, scalar/sleep/activity/workout mapping, motion repair, worker leases/retry, private Storage persistence, owner UI, staging capacity/lifecycle/cleanup evidence, and privacy deletion. ECG/RRI and GPS remain discarded; production remains excluded |
 | 5 | Legacy XLS allowlisted backfill and precedence | Done | PR #62 implementation plus PR #63 follow-up fix merged; local/CI parser, schema, API, UI, browser, and private actual Huawei BIFF8 `.xls` staging evidence are complete |
-| 6 | First summary, goals, reports, and dashboard | Planned | Normalized data contracts and UX acceptance |
+| 6 | First summary, goals, reports, and dashboard | Implementation complete; acceptance pending | Local schema/RLS, web, and synthetic-account browser evidence is green; user acceptance and PR review are the next gate |
 | 7 | Explainable scores, trends, deterministic suggestions, and safety copy | Planned | Metric coverage and threshold decisions |
 | 8 | Security/privacy hardening, deletion, diagnostics, CI expansion, and operational readiness | Planned | Production-readiness review and observability/provider decisions |
 | 9 | Hosted staging/production integration, migration/deployment automation, launch, and rollback proof | Planned | Completed release record and explicit production approval |
@@ -134,6 +135,8 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | 2026-07-30 | Step 5 verification-standard delta | Added mandatory local-browser/computer or non-production-staging evidence, privacy-safe screenshot/redacted-log requirements, and the actual-workbook staging gate to the workflow, templates, and Step 5 plan | Documentation checks passed for 75 Markdown files; staging webhook log was used because the web Auth callback was unavailable; no workbook was uploaded to chat or committed |
 | 2026-07-30 | Step 5 private actual-workbook staging gate | Located `POST /api/v1/worker/trigger` with server-only trigger authentication; after applying the already-repository migration to staging and fixing BIFF8 preflight false positives plus the 74-sheet Huawei export cap, the private actual `.xls` completed with warnings | Redacted app log: `completed_with_warnings`, 1 file processed, 0 normalized records, warnings `xls_sheet_excluded`/`xls_sheet_unknown`; owner quality counts were inserted 0, conflicted 0, excluded sheets 7, unknown sheets 67, ambiguous 0; the Storage object, import file/quality rows, Auth account, and local state file were removed, with the import tombstone in `deleted` state; trigger gate was restored to `false` |
 | 2026-08-05 | Step 5 completion merge | PR #63 (`fb292e2`) passed Documentation, Web, API, and Supabase schema/RLS checks and was squash-merged | Step 5 is complete for the approved local, CI, browser, and manual non-production staging scope; production, automatic scheduling, and alternate raw-data sheet formats remain excluded |
+| 2026-08-15 | Step 6 local schema/RLS slice | Additive goals migration, owner RLS/grants, bounded report RPC, clean local reset, schema lint, and 164 pgTAP assertions | Green; cross-owner goal/report isolation and 90-day report bound pass; hosted/provider mutation remains excluded |
+| 2026-08-15 | Step 6 web/browser slice | Summary, goals, dashboard, reports, timezone/goal actions, web typecheck/lint/build, and synthetic-account Chromium flow | Green; goal save and empty-state navigation passed; privacy-safe screenshot at `apps/web/test-results/browser/step6-summary-safe.png`; user acceptance/PR review pending |
 
 Do not record credential values, email addresses, raw health content, or private incident details in this log.
 
