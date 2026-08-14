@@ -14,3 +14,4 @@ Current plans:
 - [`0004-huawei-json-normalization.md`](0004-huawei-json-normalization.md) — proposed Step 4 implementation plan.
 - [`0005-legacy-xls-backfill.md`](0005-legacy-xls-backfill.md) — in-progress Step 5 allowlisted backfill plan.
 - [`0004-source-coverage-matrix.md`](0004-source-coverage-matrix.md) — proposed Step 4 source and metric boundary.
+- [`0006-summary-goals-dashboard-reports.md`](0006-summary-goals-dashboard-reports.md) — in-progress Step 6 summary, goals, dashboard, and reports plan.
