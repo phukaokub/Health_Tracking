@@ -1,5 +1,7 @@
 # Work plans
 
+Current Step 7 plan: [`0007-explainable-scores-trends-suggestions.md`](0007-explainable-scores-trends-suggestions.md).
+
 This directory contains instantiated change plans for active or upcoming work packages. Use the template in [`../templates/CHANGE_PLAN.md`](../templates/CHANGE_PLAN.md).
 
 - A plan begins as `proposed` and must pass Definition of Ready before implementation.

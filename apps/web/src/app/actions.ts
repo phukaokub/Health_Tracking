@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { getGoals, getReport } from "@/lib/dashboard/data";
+import { calculateWellnessScore } from "@/lib/dashboard/scoring";
 
 import { GOAL_DEFINITIONS, type GoalMetric } from "@/lib/dashboard/types";
 
@@ -83,6 +85,34 @@ export async function archiveGoal(formData: FormData) {
   revalidatePath("/goals");
   revalidatePath("/dashboard");
   redirect("/goals?saved=archived");
+}
+
+export async function saveWellnessSnapshot() {
+  const supabase = await createClient();
+  const { data: authData } = await supabase.auth.getUser();
+  if (!authData.user) redirect("/auth/sign-in?error=authentication-required");
+
+  const [reportResult, goalsResult] = await Promise.all([getReport(28), getGoals()]);
+  if (reportResult.status !== "ok" || goalsResult.status !== "ok") redirect("/reports?error=snapshot-save");
+
+  const score = calculateWellnessScore(reportResult.data, goalsResult.data);
+  const { error } = await supabase.from("wellness_score_snapshots").insert({
+    user_id: authData.user.id,
+    score_version: score.version,
+    start_date: score.window.start_date,
+    end_date: score.window.end_date,
+    timezone: reportResult.data.timezone,
+    total_score: score.total,
+    coverage_percent: score.coverage,
+    components: score.components,
+    trend: score.trend,
+    suggestions: score.suggestions,
+    source: { kind: "get_wellness_report", range_days: 28, timezone: reportResult.data.timezone },
+  });
+  if (error) redirect("/reports?error=snapshot-save");
+
+  revalidatePath("/reports");
+  redirect("/reports?saved=snapshot");
 }
 
 function stringValue(value: FormDataEntryValue | null): string {

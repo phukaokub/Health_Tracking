@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { ArrowUpRight, Check, CircleHelp, Moon, PersonStanding, HeartPulse } from "lucide-react";
+import { ArrowUpRight, Check, CircleHelp, HeartPulse, Minus, Moon, PersonStanding, ShieldCheck, TrendingDown, TrendingUp } from "lucide-react";
 
+import { saveWellnessSnapshot } from "@/app/actions";
 import type { ReportCoverage, ReportData, ReportDay, ReportRange } from "@/lib/dashboard/types";
+import type { WellnessScore } from "@/lib/dashboard/scoring";
 
 const coverageLabels: Array<[keyof ReportCoverage, string]> = [
   ["steps", "Steps"],
@@ -22,6 +24,20 @@ export function RangeTabs({ range }: { range: ReportRange }) {
       ))}
     </div>
   );
+}
+
+export function WellnessScoreView({ score }: { score: WellnessScore | null }) {
+  if (!score) return null;
+  const trendIcon = score.trend.status === "improving" ? <TrendingUp className="size-4" aria-hidden="true" /> : score.trend.status === "declining" ? <TrendingDown className="size-4" aria-hidden="true" /> : <Minus className="size-4" aria-hidden="true" />;
+  const totalLabel = score.total === null ? "Insufficient data" : `${Math.round(score.total)} / 100`;
+  return <section className="space-y-5 rounded-3xl border border-cyan-200/20 bg-cyan-300/10 p-5 sm:p-6" aria-labelledby="wellness-score-title">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div><div className="flex items-center gap-2 text-cyan-100"><ShieldCheck className="size-5" aria-hidden="true" /><h2 id="wellness-score-title" className="text-sm font-semibold">Explainable wellness score</h2></div><p className="mt-2 text-4xl font-semibold tracking-tight">{totalLabel}</p><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">{score.safety}</p></div>
+      <div className="rounded-2xl border border-white/10 bg-slate-950/30 px-4 py-3 text-right text-xs text-slate-300"><p>Version {score.version}</p><p className="mt-1">Source: report + active goals</p><p className="mt-1">{formatDate(score.window.start_date)} – {formatDate(score.window.end_date)}</p><p className="mt-1">{score.coverage}% weighted coverage</p><form action={saveWellnessSnapshot} className="mt-3"><button type="submit" className="rounded-full border border-cyan-200/30 px-3 py-1.5 text-xs font-semibold text-cyan-100 hover:bg-cyan-300/10">Save snapshot</button></form></div>
+    </div>
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{score.components.map((component) => <article key={component.key} className="rounded-2xl border border-white/10 bg-slate-950/30 p-4"><div className="flex items-start justify-between gap-3"><p className="text-sm font-medium text-white">{component.label}</p><span className="text-xs text-slate-400">{component.weight}%</span></div><p className="mt-3 text-2xl font-semibold">{component.score === null ? "Not scored" : `${Math.round(component.score)}`}</p><p className="mt-1 text-xs text-slate-400">{component.coverage}% covered</p><p className="mt-3 text-xs leading-5 text-slate-300">{component.evidence}</p></article>)}</div>
+    <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]"><section className="rounded-2xl border border-white/10 bg-slate-950/30 p-4" aria-labelledby="goal-trend-title"><div className="flex items-center gap-2 text-cyan-100">{trendIcon}<h3 id="goal-trend-title" className="font-semibold">28-day goal trend</h3></div><p className="mt-3 text-lg font-semibold capitalize">{score.trend.status}</p>{score.trend.change !== null ? <p className="mt-1 text-sm text-slate-300">{score.trend.change > 0 ? "+" : ""}{score.trend.change} points from the first to last 14 days.</p> : null}<p className="mt-3 text-xs leading-5 text-slate-400">{score.trend.evidence}</p></section><section className="rounded-2xl border border-white/10 bg-slate-950/30 p-4" aria-labelledby="suggestions-title"><h3 id="suggestions-title" className="font-semibold">What the data suggests</h3>{score.suggestions.length ? <ul className="mt-3 space-y-2 text-sm text-slate-300">{score.suggestions.map((suggestion) => <li key={suggestion.key} className="rounded-xl border border-white/10 px-3 py-2">{suggestion.text}</li>)}</ul> : <p className="mt-3 text-sm text-slate-300">No additional suggestion is needed for this window.</p>}</section></div>
+  </section>;
 }
 
 export function DashboardView({ report }: { report: ReportData }) {

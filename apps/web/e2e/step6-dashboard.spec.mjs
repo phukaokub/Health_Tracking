@@ -48,9 +48,16 @@ test("summary, goals, dashboard, and reports render for an authenticated owner",
 
   await page.goto("/reports?range=28");
   await expect(page.getByRole("heading", { name: "Look closer when you want to" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Explainable wellness score" })).toBeVisible();
+  await expect(page.getByText("Insufficient data")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "28-day goal trend" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Sleep" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Activity" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Cardio and recovery" })).toBeVisible();
+  await page.getByRole("button", { name: "Save snapshot" }).click();
+  await expect(page).toHaveURL(/\/reports\?saved=snapshot$/);
+  await expect(page.getByText("This score version was saved as an owner-only snapshot.")).toBeVisible();
+  await page.screenshot({ path: "test-results/browser/step7-score-safe.png", fullPage: true });
 });
 
 function authOptions() {
