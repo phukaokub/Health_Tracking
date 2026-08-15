@@ -1,0 +1,10 @@
+**/node_modules
+apps/web/.next
+apps/web/.next-e2e
+apps/web/test-results
+apps/web/playwright-report
+apps/web/.vercel
+services/api/.vercel
+**/.env*
+**/*.log
+coverage

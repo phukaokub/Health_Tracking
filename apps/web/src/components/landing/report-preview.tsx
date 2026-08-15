@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Activity,
   Bell,
@@ -7,6 +9,7 @@ import {
   MoonStar,
   Sparkles,
 } from "lucide-react";
+import { useState } from "react";
 
 const weeklyActivity = [42, 58, 48, 72, 64, 82, 68];
 
@@ -36,6 +39,9 @@ function MetricCard({
 }
 
 export function ReportPreview() {
+  const [period, setPeriod] = useState<"Week" | "28 days">("Week");
+  const periodRange = period === "Week" ? "28 Jun — 4 Jul" : "7 Jun — 4 Jul";
+
   return (
     <section
       id="sample-report"
@@ -53,7 +59,7 @@ export function ReportPreview() {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="hidden text-xs font-medium text-slate-500 sm:inline">28 Jun — 4 Jul</span>
+            <span className="hidden text-xs font-medium text-slate-500 sm:inline">{periodRange}</span>
             <Bell className="size-4 text-slate-400" aria-hidden="true" />
             <span className="grid size-7 place-items-center rounded-full bg-gradient-to-br from-teal-200 to-sky-300 text-[10px] font-semibold text-slate-800">
               TK
@@ -88,8 +94,13 @@ export function ReportPreview() {
                   Your week at a glance
                 </h2>
               </div>
-              <button className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600">
-                Week <ChevronDown className="size-3" aria-hidden="true" />
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600"
+                aria-label="Change report period"
+                onClick={() => setPeriod((current) => current === "Week" ? "28 days" : "Week")}
+              >
+                {period} <ChevronDown className="size-3" aria-hidden="true" />
               </button>
             </div>
 

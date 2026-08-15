@@ -4,12 +4,11 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
-  HeartPulse,
   LockKeyhole,
-  Menu,
   Sparkles,
 } from "lucide-react";
 
+import { LandingNav } from "@/components/landing/landing-nav";
 import { ReportPreview } from "@/components/landing/report-preview";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -36,34 +35,7 @@ export default function Home() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_14%_8%,rgba(45,212,191,0.19),transparent_36%),radial-gradient(circle_at_75%_80%,rgba(251,146,60,0.19),transparent_32%)]" />
 
         <div className="relative mx-auto flex min-h-screen max-w-7xl flex-col px-5 sm:px-8 lg:px-10">
-          <nav className="flex items-center justify-between py-6 sm:py-8" aria-label="Main navigation">
-            <Link href="/" className="flex items-center gap-2 text-base font-semibold tracking-tight">
-              <span className="grid size-9 place-items-center rounded-xl bg-white text-slate-950 shadow-lg shadow-sky-950/30">
-                <HeartPulse className="size-5" aria-hidden="true" />
-              </span>
-              Health Tracking
-            </Link>
-
-            <div className="hidden items-center gap-7 text-sm text-slate-200 md:flex">
-              <Link href="#how-it-works" className="transition hover:text-white">How it works</Link>
-              <Link href="#sample-report" className="transition hover:text-white">Sample report</Link>
-              <Link href="#privacy" className="transition hover:text-white">Privacy</Link>
-              <Link href="/auth/sign-in" className="transition hover:text-white">Sign in</Link>
-              <Link
-                href="#start"
-                className={cn(buttonVariants({ size: "lg" }), "h-10 rounded-full bg-white px-5 text-slate-950 hover:bg-slate-100")}
-              >
-                Get started
-              </Link>
-            </div>
-
-            <button
-              className="grid size-10 place-items-center rounded-full border border-white/20 bg-white/10 md:hidden"
-              aria-label="Open navigation menu"
-            >
-              <Menu className="size-5" aria-hidden="true" />
-            </button>
-          </nav>
+          <LandingNav />
 
           <div className="grid flex-1 items-center gap-10 pb-14 pt-7 lg:grid-cols-[0.83fr_1.17fr] lg:gap-6 lg:pb-20">
             <div className="max-w-xl py-8 lg:py-16">
@@ -82,15 +54,15 @@ export default function Home() {
                 Turn sleep, activity, heart rate, and recovery data into a calm, useful picture of your week — then set goals that fit your life.
               </p>
 
-              <div id="start" className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link
-                  href="#how-it-works"
+                  href="/auth/sign-in"
                   className={cn(buttonVariants({ size: "lg" }), "h-12 rounded-full bg-cyan-300 px-6 text-slate-950 hover:bg-cyan-200")}
                 >
                   Start with your export <ArrowRight className="size-4" aria-hidden="true" />
                 </Link>
                 <Link
-                  href="#sample-report"
+                  href="/#sample-report"
                   className={cn(buttonVariants({ variant: "outline", size: "lg" }), "h-12 rounded-full border-white/25 bg-white/5 px-6 text-white hover:bg-white/15 hover:text-white")}
                 >
                   View sample report
