@@ -1,5 +1,6 @@
 export const REPORT_RANGES = [7, 28, 90] as const;
-export type ReportRange = (typeof REPORT_RANGES)[number];
+export const REPORT_OPTIONS = [...REPORT_RANGES, "latest"] as const;
+export type ReportRange = (typeof REPORT_OPTIONS)[number];
 
 export const GOAL_DEFINITIONS = [
   {

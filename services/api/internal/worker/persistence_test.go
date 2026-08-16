@@ -44,7 +44,7 @@ func TestParsePrivatePartsVerifiesPartsAndExcludesSensitiveFamilies(t *testing.T
 	data := []byte(`{"records":[{"type":"heart_rate","record_id":"synthetic-heart","started_at":"2026-01-02T03:04:05Z","unit":"bpm","value":72},{"type":"ecg","record_id":"synthetic-ecg","started_at":"2026-01-02T03:04:05Z"},{"type":"workout_route","record_id":"synthetic-route","started_at":"2026-01-02T03:04:05Z"}]}`)
 	sum := sha256.Sum256(data)
 	result, err := ParsePrivateParts(context.Background(), memoryParts{"safe": data}, []SourcePart{{Index: 0, Bytes: int64(len(data)), SHA256: hex.EncodeToString(sum[:]), Path: "safe"}})
-	if err != nil || len(result.Samples) != 1 || len(result.Warnings) != 2 {
+	if err != nil || len(result.Samples) != 1 || len(result.Warnings) != 1 {
 		t.Fatalf("unexpected privacy-safe parse: %#v, %v", result, err)
 	}
 	records := CanonicalRecords(result)

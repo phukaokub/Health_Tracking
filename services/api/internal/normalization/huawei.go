@@ -42,6 +42,7 @@ const (
 	// shape to fit under MaxInputBytes.
 	MaxHuaweiHealthRecordCount = 200000
 	MaxRecordCount             = 10000
+	MaxResultWarnings          = 32
 	SourceFamily               = "huawei_health_json"
 )
 
@@ -161,6 +162,25 @@ type huaweiHealthSamplePoint struct {
 	Value     json.RawMessage `json:"value"`
 }
 
+type huaweiSportDay struct {
+	SportDataUserData []huaweiSportMinute `json:"sportDataUserData"`
+}
+
+type huaweiSportMinute struct {
+	DataID          json.RawMessage        `json:"dataId"`
+	StartTime       json.RawMessage        `json:"startTime"`
+	EndTime         json.RawMessage        `json:"endTime"`
+	SportType       json.RawMessage        `json:"sportType"`
+	SportBasicInfos []huaweiSportBasicInfo `json:"sportBasicInfos"`
+}
+
+type huaweiSportBasicInfo struct {
+	Steps    json.RawMessage `json:"steps"`
+	Distance json.RawMessage `json:"distance"`
+	Calorie  json.RawMessage `json:"calorie"`
+	Duration json.RawMessage `json:"duration"`
+}
+
 // ParseHuaweiJSON consumes either the internal records contract or Huawei's
 // exported activity array incrementally. It never returns input text in
 // errors and drops unsupported sensitive record families.
@@ -228,7 +248,7 @@ func parseRecordsObject(decoder *json.Decoder) (Result, error) {
 				if isKnownInternalRecordType(raw) && !hasOversizedDetailField(raw) {
 					return Result{}, &SafeError{Code: "json_token_too_large"}
 				}
-				result.Warnings = append(result.Warnings, Warning{Code: "source_detail_excluded"})
+				appendWarning(&result, Warning{Code: "source_detail_excluded"})
 				continue
 			}
 			var record sourceRecord
@@ -241,7 +261,7 @@ func parseRecordsObject(decoder *json.Decoder) (Result, error) {
 					return Result{}, err
 				}
 				if warning != nil {
-					result.Warnings = append(result.Warnings, *warning)
+					appendWarning(&result, *warning)
 				}
 				if session != nil {
 					result.SleepSessions = append(result.SleepSessions, *session)
@@ -254,7 +274,7 @@ func parseRecordsObject(decoder *json.Decoder) (Result, error) {
 					return Result{}, err
 				}
 				if warning != nil {
-					result.Warnings = append(result.Warnings, *warning)
+					appendWarning(&result, *warning)
 				}
 				if activity != nil {
 					result.Activities = append(result.Activities, *activity)
@@ -274,7 +294,7 @@ func parseRecordsObject(decoder *json.Decoder) (Result, error) {
 				return Result{}, err
 			}
 			if warning != nil {
-				result.Warnings = append(result.Warnings, *warning)
+				appendWarning(&result, *warning)
 			}
 			if sample != nil {
 				result.Samples = append(result.Samples, *sample)
@@ -313,7 +333,7 @@ func parseHuaweiActivityValues(decoder *json.Decoder, requireMatch bool) (Result
 			maxRecordCount = MaxHuaweiHealthRecordCount
 		}
 		if len(raw) > maxHuaweiRecordBytes(raw) {
-			result.Warnings = append(result.Warnings, Warning{Code: "source_detail_excluded"})
+			appendWarning(&result, Warning{Code: "source_detail_excluded"})
 			foundActivity = true
 			continue
 		}
@@ -346,9 +366,22 @@ func mergeNormalizationResult(target *Result, source Result) {
 	target.SleepSessions = append(target.SleepSessions, source.SleepSessions...)
 	target.Activities = append(target.Activities, source.Activities...)
 	target.Workouts = append(target.Workouts, source.Workouts...)
-	target.Warnings = append(target.Warnings, source.Warnings...)
+	for _, warning := range source.Warnings {
+		appendWarning(target, warning)
+	}
 	if target.LegacyXLSQuality == nil {
 		target.LegacyXLSQuality = source.LegacyXLSQuality
+	}
+}
+
+func appendWarning(result *Result, warning Warning) {
+	for _, existing := range result.Warnings {
+		if existing.Code == warning.Code {
+			return
+		}
+	}
+	if len(result.Warnings) < MaxResultWarnings {
+		result.Warnings = append(result.Warnings, warning)
 	}
 }
 
@@ -356,6 +389,14 @@ func appendHuaweiActivityJSON(result *Result, raw []byte) (bool, error) {
 	var keys map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &keys); err != nil {
 		return false, &SafeError{Code: "source_schema_unsupported"}
+	}
+	if _, isSportDay := keys["sportDataUserData"]; isSportDay {
+		var day huaweiSportDay
+		if err := json.Unmarshal(raw, &day); err != nil {
+			return false, &SafeError{Code: "source_schema_unsupported"}
+		}
+		appendHuaweiSportDay(result, day)
+		return true, nil
 	}
 	if typeValue, isRecord := keys["type"]; isRecord && isHuaweiNumericValue(typeValue) {
 		if err := appendHuaweiHealthRecord(result, raw); err != nil {
@@ -382,7 +423,7 @@ func appendHuaweiActivityJSON(result *Result, raw []byte) (bool, error) {
 		matched := true
 		for _, nested := range activity.MotionPathData {
 			if len(nested) > maxHuaweiRecordBytes(nested) {
-				result.Warnings = append(result.Warnings, Warning{Code: "source_detail_excluded"})
+				appendWarning(result, Warning{Code: "source_detail_excluded"})
 				continue
 			}
 			childMatched, err := appendHuaweiActivityJSON(result, nested)
@@ -401,7 +442,7 @@ func appendHuaweiActivityJSON(result *Result, raw []byte) (bool, error) {
 		return false, err
 	}
 	if warning != nil {
-		result.Warnings = append(result.Warnings, *warning)
+		appendWarning(result, *warning)
 	}
 	if workout != nil {
 		result.Workouts = append(result.Workouts, *workout)
@@ -420,13 +461,27 @@ func isHuaweiNumericRecordJSON(raw []byte) bool {
 
 func appendHuaweiHealthRecord(result *Result, raw []byte) error {
 	var record huaweiHealthRecord
-	if err := json.Unmarshal(raw, &record); err != nil || len(record.SamplePoints) == 0 {
+	if err := json.Unmarshal(raw, &record); err != nil {
+		return &SafeError{Code: "source_schema_unsupported"}
+	}
+	if len(record.SamplePoints) == 0 {
+		appendWarning(result, Warning{Code: "source_schema_unsupported"})
 		return nil
 	}
 	for _, point := range record.SamplePoints {
+		if point.Key == "SLEEP_RECORD" || point.Key == "SLEEP_ON_OFF_BED_RECORD" {
+			session, warning := normalizeHuaweiSleep(record, point)
+			if warning != nil {
+				appendWarning(result, *warning)
+			}
+			if session != nil {
+				result.SleepSessions = append(result.SleepSessions, *session)
+				continue
+			}
+		}
 		sample, warning := normalizeHuaweiHealthSample(record, point)
 		if warning != nil {
-			result.Warnings = append(result.Warnings, *warning)
+			appendWarning(result, *warning)
 		}
 		if sample != nil {
 			result.Samples = append(result.Samples, *sample)
@@ -435,12 +490,165 @@ func appendHuaweiHealthRecord(result *Result, raw []byte) error {
 	return nil
 }
 
+func normalizeHuaweiSleep(record huaweiHealthRecord, point huaweiHealthSamplePoint) (*SleepSession, *Warning) {
+	startedAt, ok := huaweiNestedTime(point.Value, "fallAsleepTime", "bedTime", "sleepTime", "startTime")
+	if !ok {
+		startedAt, ok = huaweiHealthTime(point.StartTime)
+	}
+	if !ok {
+		startedAt, ok = huaweiHealthTime(record.StartTime)
+	}
+	if !ok {
+		return nil, &Warning{Code: "timestamp_invalid"}
+	}
+	endedAt, endOK := huaweiNestedTime(point.Value, "wakeupTime", "risingTime", "wakeTime", "endTime")
+	if !endOK {
+		endedAt, endOK = huaweiHealthTime(point.EndTime)
+	}
+	if !endOK {
+		endedAt, endOK = huaweiHealthTime(record.EndTime)
+	}
+	if !endOK || !endedAt.After(startedAt) || endedAt.Sub(startedAt) > 24*time.Hour {
+		return nil, &Warning{Code: "timestamp_invalid"}
+	}
+	recordID := record.RecordID
+	if recordID == "" {
+		recordID = "huawei-sleep-record"
+	}
+	recordHash := hash(strings.Join([]string{recordID, point.Key, startedAt.Format(time.RFC3339Nano), endedAt.Format(time.RFC3339Nano)}, "|"))
+	return &SleepSession{
+		SourceRecordHash: recordHash,
+		StartedAt:        startedAt,
+		EndedAt:          endedAt,
+		DurationSeconds:  int64(endedAt.Sub(startedAt).Seconds()),
+		DedupeKey:        hash(strings.Join([]string{"v1", SourceFamily, "sleep_session", startedAt.Format(time.RFC3339Nano), endedAt.Format(time.RFC3339Nano)}, "|")),
+		ParserVersion:    ParserVersion,
+	}, nil
+}
+
+func appendHuaweiSportDay(result *Result, day huaweiSportDay) {
+	if len(day.SportDataUserData) == 0 {
+		appendWarning(result, Warning{Code: "source_schema_unsupported"})
+		return
+	}
+	for minuteIndex, minute := range day.SportDataUserData {
+		sportTypeValue, sportTypeOK := huaweiNumber(minute.SportType)
+		if !sportTypeOK || sportTypeValue != math.Trunc(sportTypeValue) || sportTypeValue < math.MinInt || sportTypeValue > math.MaxInt {
+			appendWarning(result, Warning{Code: "metric_mapping_unknown"})
+			continue
+		}
+		start, startOK := huaweiHealthTime(minute.StartTime)
+		end, endOK := huaweiHealthTime(minute.EndTime)
+		if !startOK {
+			appendWarning(result, Warning{Code: "timestamp_invalid"})
+			continue
+		}
+		if !endOK || !end.After(start) {
+			end = start
+			for _, info := range minute.SportBasicInfos {
+				if seconds, ok := huaweiSportDurationSeconds(info.Duration); ok {
+					end = start.Add(time.Duration(seconds * float64(time.Second)))
+					break
+				}
+			}
+		}
+		if !end.After(start) || end.Sub(start) > 24*time.Hour {
+			appendWarning(result, Warning{Code: "timestamp_invalid"})
+			continue
+		}
+
+		activityType, knownActivity := huaweiSportType(int(sportTypeValue))
+		recordID := huaweiIdentityText(minute.DataID, fmt.Sprintf("sport-minute-%d", minuteIndex))
+		if knownActivity {
+			recordHash := hash(strings.Join([]string{recordID, fmt.Sprintf("%d", int(sportTypeValue)), start.Format(time.RFC3339Nano), end.Format(time.RFC3339Nano)}, "|"))
+			result.Activities = append(result.Activities, Activity{
+				SourceRecordHash: recordHash,
+				ActivityType:     activityType,
+				StartedAt:        start,
+				EndedAt:          end,
+				DurationSeconds:  int64(end.Sub(start).Seconds()),
+				DedupeKey:        hash(strings.Join([]string{"v1", SourceFamily, "activity", recordHash, activityType, start.Format(time.RFC3339Nano), end.Format(time.RFC3339Nano)}, "|")),
+				ParserVersion:    ParserVersion,
+			})
+		} else {
+			appendWarning(result, Warning{Code: "metric_mapping_unknown"})
+		}
+
+		for infoIndex, info := range minute.SportBasicInfos {
+			identity := fmt.Sprintf("%s:%d", recordID, infoIndex)
+			appendHuaweiSportSample(result, identity, "steps", info.Steps, start, end, "count", "count", same)
+			appendHuaweiSportSample(result, identity, "distance", info.Distance, start, end, "metres", "metres", same)
+			appendHuaweiSportSample(result, identity, "calories", info.Calorie, start, end, "kilocalories", "kilocalories", same)
+			if seconds, ok := huaweiSportDurationSeconds(info.Duration); ok {
+				appendHuaweiSportSample(result, identity, "active_duration", json.RawMessage(strconv.FormatFloat(seconds, 'f', -1, 64)), start, end, "seconds", "seconds", same)
+			}
+		}
+	}
+}
+
+func appendHuaweiSportSample(result *Result, recordID, sourceType string, raw json.RawMessage, startedAt, endedAt time.Time, unit, sourceUnit string, convert func(float64) float64) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return
+	}
+	value, ok := huaweiNumber(raw)
+	if !ok || value < 0 {
+		appendWarning(result, Warning{Code: "metric_mapping_unknown"})
+		return
+	}
+	value = convert(value)
+	if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
+		appendWarning(result, Warning{Code: "metric_mapping_unknown"})
+		return
+	}
+	recordHash := hash(strings.Join([]string{recordID, sourceType, startedAt.Format(time.RFC3339Nano), endedAt.Format(time.RFC3339Nano)}, "|"))
+	canonicalValue := strconv.FormatFloat(value, 'f', -1, 64)
+	identity := strings.Join([]string{"v1", SourceFamily, sourceType, recordHash, unit, canonicalValue}, "|")
+	result.Samples = append(result.Samples, Sample{
+		SourceFamily:          SourceFamily,
+		SourceType:            sourceType,
+		SourceRecordHash:      recordHash,
+		StartedAt:             startedAt,
+		EndedAt:               endedAt,
+		Unit:                  unit,
+		SourceUnit:            sourceUnit,
+		UnitConversionVersion: "v1",
+		Value:                 canonicalValue,
+		DedupeKey:             hash(identity),
+		ParserVersion:         ParserVersion,
+	})
+}
+
+func huaweiSportDurationSeconds(raw json.RawMessage) (float64, bool) {
+	value, ok := huaweiNumber(raw)
+	if !ok || value <= 0 {
+		return 0, false
+	}
+	if value >= 1000 {
+		return value / 1000, true
+	}
+	return value, true
+}
+
+func huaweiIdentityText(raw json.RawMessage, fallback string) string {
+	if len(raw) == 0 || string(raw) == "null" {
+		return fallback
+	}
+	var text string
+	if json.Unmarshal(raw, &text) == nil && strings.TrimSpace(text) != "" {
+		return strings.TrimSpace(text)
+	}
+	if value, ok := huaweiNumber(raw); ok {
+		return strconv.FormatFloat(value, 'f', -1, 64)
+	}
+	return fallback
+}
+
 func normalizeHuaweiHealthSample(record huaweiHealthRecord, point huaweiHealthSamplePoint) (*Sample, *Warning) {
 	sourceType, unit, sourceUnit, convert, ok := huaweiHealthMetric(point.Key, point.Unit)
 	if !ok {
 		return nil, &Warning{Code: "metric_mapping_unknown"}
 	}
-	value, ok := huaweiNumber(point.Value)
+	value, ok := huaweiHealthValue(point.Key, point.Value)
 	if !ok || value < 0 {
 		return nil, &Warning{Code: "metric_mapping_unknown"}
 	}
@@ -489,14 +697,99 @@ func normalizeHuaweiHealthSample(record huaweiHealthRecord, point huaweiHealthSa
 	}, nil
 }
 
+func huaweiHealthValue(key string, raw json.RawMessage) (float64, bool) {
+	if value, ok := huaweiNumber(raw); ok {
+		return value, true
+	}
+	normalizedKey := normalizeHuaweiKey(key)
+	switch normalizedKey {
+	case "dynamic_heart_rate", "data_point_dynamic_heartrate", "heartrate_rate":
+		return huaweiNestedNumber(raw, "bpm")
+	case "resting_heart_rate", "data_point_new_rest_heartrate", "data_point_rest_heartrate":
+		return huaweiNestedNumber(raw, "restBpm", "oldRestBpm", "bpm")
+	case "heart_rate_variability":
+		return huaweiNestedNumber(raw, "heartRateVariabilityRMSSD", "rmssd")
+	case "stress", "stress_data":
+		return huaweiNestedNumber(raw, "stressScore", "score")
+	case "skin_temperature":
+		return huaweiNestedNumber(raw, "skinTemperature", "temperature")
+	case "blood_oxygen_saturation", "spo2":
+		return huaweiNestedNumber(raw, "avgSaturation", "saturation", "spo2")
+	case "exercise_intensity":
+		return huaweiNestedNumber(raw, "exerciseType", "intensity")
+	default:
+		return 0, false
+	}
+}
+
+func huaweiNestedTime(raw json.RawMessage, keys ...string) (time.Time, bool) {
+	value, ok := huaweiNestedNumber(raw, keys...)
+	if !ok {
+		return time.Time{}, false
+	}
+	return huaweiHealthTime(json.RawMessage(strconv.FormatFloat(value, 'f', -1, 64)))
+}
+
+func huaweiNestedNumber(raw json.RawMessage, keys ...string) (float64, bool) {
+	object, ok := huaweiObject(raw)
+	if !ok {
+		return 0, false
+	}
+	for _, key := range keys {
+		if value, exists := object[key]; exists {
+			if number, numberOK := huaweiNumber(value); numberOK {
+				return number, true
+			}
+		}
+	}
+	return 0, false
+}
+
+func huaweiObject(raw json.RawMessage) (map[string]json.RawMessage, bool) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 {
+		return nil, false
+	}
+	var object map[string]json.RawMessage
+	if trimmed[0] == '"' {
+		var encoded string
+		if json.Unmarshal(trimmed, &encoded) != nil {
+			return nil, false
+		}
+		if json.Unmarshal([]byte(encoded), &object) != nil {
+			return nil, false
+		}
+		return object, true
+	}
+	if json.Unmarshal(trimmed, &object) != nil {
+		return nil, false
+	}
+	return object, true
+}
+
+func normalizeHuaweiKey(key string) string {
+	return strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(key, "-", "_"), " ", "_"))
+}
+
 func huaweiHealthMetric(key, rawUnit string) (sourceType, unit, sourceUnit string, convert func(float64) float64, ok bool) {
-	normalizedKey := strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(key, "-", "_"), " ", "_"))
+	normalizedKey := normalizeHuaweiKey(key)
 	normalizedUnit := strings.ToLower(strings.TrimSpace(rawUnit))
 	if normalizedUnit == "" || normalizedUnit == "0" {
 		normalizedUnit = "unknown"
 	}
 
 	switch {
+	case normalizedKey == "heart_rate_variability":
+		return "hrv", "milliseconds", normalizedUnitOrDefault(normalizedUnit, "milliseconds"), same, true
+	case normalizedKey == "skin_temperature":
+		return "skin_temperature", "degrees_celsius", normalizedUnitOrDefault(normalizedUnit, "degrees_celsius"), same, true
+	case normalizedKey == "blood_oxygen_saturation" || normalizedKey == "spo2":
+		if normalizedUnit == "fraction" {
+			return "spo2", "percent", normalizedUnit, func(value float64) float64 { return value * 100 }, true
+		}
+		return "spo2", "percent", normalizedUnitOrDefault(normalizedUnit, "percent"), same, true
+	case normalizedKey == "exercise_intensity":
+		return "exercise_intensity", "source_score", normalizedUnitOrDefault(normalizedUnit, "source_score"), same, true
 	case strings.Contains(normalizedKey, "resting") && strings.Contains(normalizedKey, "heart"):
 		return "resting_heart_rate", "bpm", normalizedUnitOrDefault(normalizedUnit, "bpm"), same, true
 	case strings.Contains(normalizedKey, "heart") && strings.Contains(normalizedKey, "rate"):
@@ -559,6 +852,9 @@ func maxHuaweiRecordBytes(raw json.RawMessage) int {
 			}
 		}
 		if _, ok := keys["sportType"]; ok {
+			return MaxHuaweiHealthRecordBytes
+		}
+		if _, ok := keys["sportDataUserData"]; ok {
 			return MaxHuaweiHealthRecordBytes
 		}
 		if _, ok := keys["motionPathData"]; ok {
@@ -627,7 +923,7 @@ func appendSourceRecord(result *Result, record sourceRecord) error {
 			return err
 		}
 		if warning != nil {
-			result.Warnings = append(result.Warnings, *warning)
+			appendWarning(result, *warning)
 		}
 		if session != nil {
 			result.SleepSessions = append(result.SleepSessions, *session)
@@ -640,7 +936,7 @@ func appendSourceRecord(result *Result, record sourceRecord) error {
 			return err
 		}
 		if warning != nil {
-			result.Warnings = append(result.Warnings, *warning)
+			appendWarning(result, *warning)
 		}
 		if activity != nil {
 			result.Activities = append(result.Activities, *activity)
@@ -662,7 +958,7 @@ func appendSourceRecord(result *Result, record sourceRecord) error {
 		return err
 	}
 	if warning != nil {
-		result.Warnings = append(result.Warnings, *warning)
+		appendWarning(result, *warning)
 	}
 	if sample != nil {
 		result.Samples = append(result.Samples, *sample)

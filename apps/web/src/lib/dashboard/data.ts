@@ -34,8 +34,28 @@ export async function getReport(range: ReportRange): Promise<Result<ReportData>>
 
   const timezone = validTimeZone(typeof profile?.timezone === "string" ? profile.timezone : "UTC");
   const endDate = todayInTimeZone(timezone);
+  if (range === "latest") return getLatestReport(supabase, endDate, timezone);
   const startDate = addDays(endDate, -(range - 1));
   return queryReport(supabase, startDate, endDate, timezone);
+}
+
+async function getLatestReport(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  today: string,
+  timezone: string,
+): Promise<Result<ReportData>> {
+  const probe = await queryReport(supabase, addDays(today, -(REPORT_RANGES[2] - 1)), today, timezone);
+  if (probe.status !== "ok") return probe;
+  const window = latestImportedWindow(probe.data.available_range);
+  return window ? queryReport(supabase, window.start_date, window.end_date, timezone) : probe;
+}
+
+export function latestImportedWindow(availableRange: ReportData["available_range"]): { start_date: string; end_date: string } | null {
+  const startDate = dateValue(availableRange.start_date);
+  const endDate = dateValue(availableRange.end_date);
+  if (!startDate || !endDate || startDate > endDate) return null;
+  const maximumStart = addDays(endDate, -(REPORT_RANGES[2] - 1));
+  return { start_date: startDate > maximumStart ? startDate : maximumStart, end_date: endDate };
 }
 
 export async function getSummaryData(): Promise<Result<SummaryData>> {

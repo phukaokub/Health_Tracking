@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight, Check, CircleHelp, HeartPulse, Minus, Moon, PersonStanding, ShieldCheck, TrendingDown, TrendingUp } from "lucide-react";
 
 import { saveWellnessSnapshot } from "@/app/actions";
-import type { ReportCoverage, ReportData, ReportDay, ReportRange } from "@/lib/dashboard/types";
+import { REPORT_OPTIONS, type ReportCoverage, type ReportData, type ReportDay, type ReportRange } from "@/lib/dashboard/types";
 import type { WellnessScore } from "@/lib/dashboard/scoring";
 
 const coverageLabels: Array<[keyof ReportCoverage, string]> = [
@@ -17,9 +17,9 @@ const coverageLabels: Array<[keyof ReportCoverage, string]> = [
 export function RangeTabs({ range }: { range: ReportRange }) {
   return (
     <div className="flex flex-wrap gap-2" aria-label="Report date range">
-      {[7, 28, 90].map((days) => (
-        <Link key={days} href={`?range=${days}`} aria-current={range === days ? "page" : undefined} className={`rounded-full px-4 py-2 text-sm ${range === days ? "bg-cyan-300 font-semibold text-slate-950" : "border border-white/15 text-slate-300 hover:bg-white/10"}`}>
-          {days} days
+      {REPORT_OPTIONS.map((option) => (
+        <Link key={option} href={`?range=${option}`} aria-current={range === option ? "page" : undefined} className={`rounded-full px-4 py-2 text-sm ${range === option ? "bg-cyan-300 font-semibold text-slate-950" : "border border-white/15 text-slate-300 hover:bg-white/10"}`}>
+          {option === "latest" ? "Latest imported" : `${option} days`}
         </Link>
       ))}
     </div>
