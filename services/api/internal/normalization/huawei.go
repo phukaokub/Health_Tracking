@@ -4,6 +4,7 @@
 package normalization
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -217,7 +218,7 @@ func parseRecordsObject(decoder *json.Decoder) (Result, error) {
 				return Result{}, safeJSONError(err)
 			}
 			if len(raw) > maxHuaweiRecordBytes(raw) {
-				if isKnownInternalRecordType(raw) {
+				if isKnownInternalRecordType(raw) && !hasOversizedDetailField(raw) {
 					return Result{}, &SafeError{Code: "json_token_too_large"}
 				}
 				result.Warnings = append(result.Warnings, Warning{Code: "source_detail_excluded"})
@@ -565,6 +566,24 @@ func isKnownInternalRecordType(raw json.RawMessage) bool {
 	default:
 		return false
 	}
+}
+
+func hasOversizedDetailField(raw json.RawMessage) bool {
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &keys); err != nil {
+		return false
+	}
+	for _, key := range []string{"value", "samplePoints", "samples", "points", "data", "route", "motionPathData"} {
+		value, ok := keys[key]
+		if !ok {
+			continue
+		}
+		value = bytes.TrimSpace(value)
+		if len(value) > 0 && (value[0] == '[' || value[0] == '{') {
+			return true
+		}
+	}
+	return false
 }
 
 func huaweiHealthTime(raw json.RawMessage) (time.Time, bool) {
