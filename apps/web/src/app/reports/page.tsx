@@ -1,34 +1,23 @@
 import { redirect } from "next/navigation";
 
-import { AppShell, EmptyState, ErrorState, MetricsTable, PageIntro, QualityCard, WindowLinks } from "@/components/summary/summary-ui";
-import { getSummary, type SummarySnapshot, type SummaryWindow } from "@/lib/summary/summary-api";
-import { createClient } from "@/lib/supabase/server";
+import { DashboardShell, SafeErrorState } from "@/components/dashboard/dashboard-shell";
+import { RangeTabs, ReportsView, WellnessScoreView } from "@/components/dashboard/report-view";
+import { getGoals, getReport } from "@/lib/dashboard/data";
+import { calculateWellnessScore } from "@/lib/dashboard/scoring";
+import { REPORT_RANGES, type ReportRange } from "@/lib/dashboard/types";
 
 export const dynamic = "force-dynamic";
 
-function requestedWindow(value?: string): SummaryWindow {
-  return value === "28" ? 28 : value === "90" ? 90 : 7;
+export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ range?: string; saved?: string; error?: string }> }) {
+  const params = await searchParams;
+  const range = parseRange(params.range);
+  const reportPromise = getReport(range);
+  const scoreReportPromise = range === 28 ? reportPromise : getReport(28);
+  const [result, scoreReportResult, goalsResult] = await Promise.all([reportPromise, scoreReportPromise, getGoals()]);
+  if (result.status === "unauthorized") redirect("/auth/sign-in?error=authentication-required");
+  if (scoreReportResult.status === "unauthorized" || goalsResult.status === "unauthorized") redirect("/auth/sign-in?error=authentication-required");
+  const score = scoreReportResult.status === "ok" && goalsResult.status === "ok" ? calculateWellnessScore(scoreReportResult.data, goalsResult.data) : null;
+  return <DashboardShell active="/reports" eyebrow="Reports" title="Look closer when you want to" description="Switch between short and longer windows to review sleep, activity, and cardio sections with the same timezone and coverage rules as the dashboard."><div className="space-y-6"><RangeTabs range={range} />{params.saved === "snapshot" ? <p className="rounded-2xl border border-emerald-200/20 bg-emerald-300/10 p-4 text-sm text-emerald-100" role="status">This score version was saved as an owner-only snapshot.</p> : null}{params.error === "snapshot-save" ? <p className="rounded-2xl border border-amber-200/20 bg-amber-300/10 p-4 text-sm text-amber-100" role="alert">The score snapshot could not be saved. The report itself is still available.</p> : null}<WellnessScoreView score={score} />{result.status === "error" ? <SafeErrorState /> : <ReportsView report={result.data} />}</div></DashboardShell>;
 }
 
-export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ window?: string }> }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/auth/sign-in?error=authentication-required");
-  const windowDays = requestedWindow((await searchParams).window);
-
-  let snapshot: SummarySnapshot | null = null;
-  try { snapshot = await getSummary(windowDays); } catch { /* Render the safe error state below. */ }
-  if (!snapshot) {
-    return <AppShell active="reports"><div className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-16"><PageIntro eyebrow="Reports" title="A report you can inspect" description="Daily rows, source coverage, and processing warnings are shown together." /><ErrorState /></div></AppShell>;
-  }
-  return (
-    <AppShell active="reports">
-      <div className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
-        <PageIntro eyebrow="Reports" title="A report you can inspect" description="Daily rows, source coverage, and processing warnings are shown together so you can understand what the import can and cannot say." />
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-4"><p className="text-sm text-slate-400">{snapshot.coverage.days_with_data} days with available data · {snapshot.timezone}</p><WindowLinks active={windowDays} /></div>
-        {snapshot.coverage.days_with_data === 0 && <EmptyState state={snapshot.quality.import_state} />}
-        {snapshot.coverage.days_with_data > 0 && <div className="mt-8 grid gap-6"><QualityCard snapshot={snapshot} /><MetricsTable snapshot={snapshot} /></div>}
-      </div>
-    </AppShell>
-  );
-}
+function parseRange(value: string | undefined): ReportRange { const parsed = Number(value); return REPORT_RANGES.includes(parsed as ReportRange) ? parsed as ReportRange : 28; }

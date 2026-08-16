@@ -1,5 +1,7 @@
 # Work plans
 
+Current Step 7 plan: [`0007-explainable-scores-trends-suggestions.md`](0007-explainable-scores-trends-suggestions.md).
+
 This directory contains instantiated change plans for active or upcoming work packages. Use the template in [`../templates/CHANGE_PLAN.md`](../templates/CHANGE_PLAN.md).
 
 - A plan begins as `proposed` and must pass Definition of Ready before implementation.
@@ -14,3 +16,4 @@ Current plans:
 - [`0004-huawei-json-normalization.md`](0004-huawei-json-normalization.md) — proposed Step 4 implementation plan.
 - [`0005-legacy-xls-backfill.md`](0005-legacy-xls-backfill.md) — in-progress Step 5 allowlisted backfill plan.
 - [`0004-source-coverage-matrix.md`](0004-source-coverage-matrix.md) — proposed Step 4 source and metric boundary.
+- [`0006-summary-goals-dashboard-reports.md`](0006-summary-goals-dashboard-reports.md) — in-progress Step 6 summary, goals, dashboard, and reports plan.

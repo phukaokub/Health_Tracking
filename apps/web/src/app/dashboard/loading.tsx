@@ -1,3 +1,1 @@
-export default function Loading() {
-  return <main className="min-h-screen bg-slate-950 p-8 text-slate-300"><div className="mx-auto max-w-6xl animate-pulse"><div className="h-4 w-32 rounded bg-white/10" /><div className="mt-6 h-12 w-80 rounded bg-white/10" /><div className="mt-10 h-64 rounded-3xl bg-white/5" /></div></main>;
-}
+export default function Loading() { return <main className="min-h-screen bg-slate-950 px-6 py-12 text-white"><div className="mx-auto max-w-7xl animate-pulse"><div className="h-8 w-40 rounded bg-white/10" /><div className="mt-12 h-12 w-2/3 rounded bg-white/10" /><div className="mt-8 grid gap-4 md:grid-cols-4"><div className="h-32 rounded-3xl bg-white/5" /><div className="h-32 rounded-3xl bg-white/5" /><div className="h-32 rounded-3xl bg-white/5" /><div className="h-32 rounded-3xl bg-white/5" /></div></div></main>; }

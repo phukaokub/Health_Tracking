@@ -1,16 +1,17 @@
 # Delivery tracker
 
-Last reviewed: 2026-08-05
+Last reviewed: 2026-08-15
 
 This is the living status document. Update it at each meaningful handoff, accepted scope change, new blocker, pull-request transition, and release. Product intent belongs in `PROJECT_PLAN.md`; detailed change design belongs in a change plan.
 
 ## Current release
 
 - Release target: private non-clinical V1.
-- Current gate: Step 5 implementation and follow-up verification fix are squash-merged in PR #63; local, CI, browser, and private staging evidence are green. Step 3's hosted synthetic two-user, quota/outage, and cleanup suite remains explicitly deferred and is out of scope.
-- Current branch: `main`.
-- Active milestone: Step 5 remains complete. Step 6 summary/dashboard/reports implementation is on branch `codex/step-6-summary-dashboard-reports` with local checks green and the private staging API/web deployments ready; authenticated hosted UI verification remains pending. The repository-wide verification rule still requires local-browser/computer or non-production-staging evidence plus a privacy-safe screenshot or redacted log for every verification claim. Automatic scheduling, production resources, ECG/RRI, GPS/routes, and later milestones remain excluded.
+- Current gate: Step 6 implementation is complete on the local branch with local schema, RLS, web, and browser evidence green; user acceptance and pull-request review remain pending. Step 5 is squash-merged in PR #63; Step 3's hosted synthetic two-user, quota/outage, and cleanup suite remains explicitly deferred and is out of scope.
+- Current branch: `codex/step-6-summary-dashboard-reports`.
+- Active milestone: Step 6 follow-up fixes are under review on this branch: session-aware landing/navigation, import/profile handoff, and the bounded Huawei activity-array worker adapter. Step 7 remains implemented on `main` and is included through the merge base; production resources, provider changes, automatic scheduling, ECG/RRI, GPS/routes, medical inference, and hosted verification remain excluded.
 - Active Step 6 plan: [`plans/0006-summary-dashboard-reports.md`](plans/0006-summary-dashboard-reports.md).
+- Active Step 7 plan: [`plans/0007-explainable-scores-trends-suggestions.md`](plans/0007-explainable-scores-trends-suggestions.md).
 - Active Step 5 plan: [`plans/0005-legacy-xls-backfill.md`](plans/0005-legacy-xls-backfill.md).
 - Active Step 4 plan: [`plans/0004-huawei-json-normalization.md`](plans/0004-huawei-json-normalization.md).
 - The Go foreground access decision is accepted in [`decisions/0002-foreground-supabase-access.md`](decisions/0002-foreground-supabase-access.md). Preview isolation is required before hosted verification (3I).
@@ -26,8 +27,8 @@ This is the living status document. Update it at each meaningful handoff, accept
 | 3 | Manifest, private multipart/resumable upload, import records/jobs, progress/recovery | Handoff PR #16 open | User accepted local browser evidence plus hosted Google Auth and authenticated upload-to-queue. Hosted synthetic two-user RLS, quota/outage, and cleanup smoke is deferred and remains a recorded operational risk |
 | 4 | Streaming Huawei JSON parsing, normalization, provenance, and dedupe | Done | PRs #17-#27 and completion PR #61 cover generated fixtures, scalar/sleep/activity/workout mapping, motion repair, worker leases/retry, private Storage persistence, owner UI, staging capacity/lifecycle/cleanup evidence, and privacy deletion. ECG/RRI and GPS remain discarded; production remains excluded |
 | 5 | Legacy XLS allowlisted backfill and precedence | Done | PR #62 implementation plus PR #63 follow-up fix merged; local/CI parser, schema, API, UI, browser, and private actual Huawei BIFF8 `.xls` staging evidence are complete |
-| 6 | First summary, goals, reports, and dashboard | In progress | Summary/dashboard/reports slice deployed to private staging; authenticated UI acceptance and normalized source coverage remain |
-| 7 | Explainable scores, trends, deterministic suggestions, and safety copy | Planned | Metric coverage and threshold decisions |
+| 6 | First summary, goals, reports, and dashboard | Implementation complete; acceptance pending | Local schema/RLS, web, and synthetic-account browser evidence is green; user acceptance and PR review are the next gate |
+| 7 | Explainable scores, trends, deterministic suggestions, and safety copy | In progress | Local score/trend/snapshot/UI slice is green; issue #42 product approval remains |
 | 8 | Security/privacy hardening, deletion, diagnostics, CI expansion, and operational readiness | Planned | Production-readiness review and observability/provider decisions |
 | 9 | Hosted staging/production integration, migration/deployment automation, launch, and rollback proof | Planned | Completed release record and explicit production approval |
 
@@ -135,7 +136,10 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | 2026-07-30 | Step 5 verification-standard delta | Added mandatory local-browser/computer or non-production-staging evidence, privacy-safe screenshot/redacted-log requirements, and the actual-workbook staging gate to the workflow, templates, and Step 5 plan | Documentation checks passed for 75 Markdown files; staging webhook log was used because the web Auth callback was unavailable; no workbook was uploaded to chat or committed |
 | 2026-07-30 | Step 5 private actual-workbook staging gate | Located `POST /api/v1/worker/trigger` with server-only trigger authentication; after applying the already-repository migration to staging and fixing BIFF8 preflight false positives plus the 74-sheet Huawei export cap, the private actual `.xls` completed with warnings | Redacted app log: `completed_with_warnings`, 1 file processed, 0 normalized records, warnings `xls_sheet_excluded`/`xls_sheet_unknown`; owner quality counts were inserted 0, conflicted 0, excluded sheets 7, unknown sheets 67, ambiguous 0; the Storage object, import file/quality rows, Auth account, and local state file were removed, with the import tombstone in `deleted` state; trigger gate was restored to `false` |
 | 2026-08-05 | Step 5 completion merge | PR #63 (`fb292e2`) passed Documentation, Web, API, and Supabase schema/RLS checks and was squash-merged | Step 5 is complete for the approved local, CI, browser, and manual non-production staging scope; production, automatic scheduling, and alternate raw-data sheet formats remain excluded |
-| 2026-08-16 | Step 6 summary/dashboard/reports staging slice | Added owner-scoped bounded summary RPC/API, authenticated responsive routes, and safe worker exclusion for empty/unsupported source files; applied the additive staging migration and ran the reviewed worker replay | Local Go/web checks and staging deployments are green; 63 verified files completed with warnings and replay idle, but normalized canonical rows remain 0 because this export's JSON/XLS documents are outside the currently approved parser shapes; hosted authenticated UI acceptance remains pending |
+| 2026-08-15 | Step 6 local schema/RLS slice | Additive goals migration, owner RLS/grants, bounded report RPC, clean local reset, schema lint, and 164 pgTAP assertions | Green; cross-owner goal/report isolation and 90-day report bound pass; hosted/provider mutation remains excluded |
+| 2026-08-15 | Step 6 web/browser slice | Summary, goals, dashboard, reports, timezone/goal actions, web typecheck/lint/build, and synthetic-account Chromium flow | Green; goal save and empty-state navigation passed; privacy-safe screenshot at `apps/web/test-results/browser/step6-summary-safe.png`; user acceptance/PR review pending |
+| 2026-08-15 | Step 7 score/trend/snapshot slice | Deterministic `score-v1` domain logic, coverage-aware reweighting, descriptive 28-day goal trend, safe suggestions, reports explanation UI, owner-scoped insert-only snapshots, focused fixtures, local schema/RLS checks, and synthetic-account browser evidence | Green; 3 score tests, web typecheck/lint/build, clean local reset, schema lint, 172 pgTAP assertions, and `apps/web/test-results/browser/step7-score-safe.png`; working thresholds/labels remain pending issue #42 approval |
+| 2026-08-16 | Step 6 staging follow-up | Session-aware landing/navigation, import/profile handoff, Huawei activity-array normalization with raw route/detail exclusion, and reviewed staging replay/deployment work | Local Go/web checks are green; final merged staging replay and hosted authenticated UI verification remain |
 
 Do not record credential values, email addresses, raw health content, or private incident details in this log.
 
