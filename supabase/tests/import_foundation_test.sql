@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(148);
+SELECT plan(149);
 
 SELECT ok(to_regclass('public.import_runs') is not null, 'import_runs exists');
 SELECT ok(to_regclass('public.import_manifest_pages') is not null, 'import_manifest_pages exists');
