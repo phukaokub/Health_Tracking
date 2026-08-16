@@ -81,6 +81,9 @@ func (service workerTriggerService) ProcessOneImport(ctx context.Context) (worke
 	progress := worker.Progress{TotalFileCount: len(files), State: "processing"}
 	opener := privatePartOpener{client: service.client, identity: identity}
 	batchSequence := 0
+	if len(files) > 0 {
+		batchSequence = files[0].BatchSequenceStart
+	}
 	for _, file := range files {
 		if err := service.renew(ctx, identity, *lease); err != nil {
 			return worker.Progress{}, err

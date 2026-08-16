@@ -56,13 +56,14 @@ type WorkerSourcePart struct {
 }
 
 type WorkerSourceFile struct {
-	ID                string             `json:"id"`
-	LogicalBytes      int64              `json:"logical_bytes"`
-	ContentSHA256     string             `json:"content_sha256"`
-	SourceFamily      string             `json:"source_family"`
-	ContentKind       string             `json:"content_kind"`
-	TimezoneCandidate string             `json:"timezone_candidate"`
-	Parts             []WorkerSourcePart `json:"parts"`
+	ID                 string             `json:"id"`
+	LogicalBytes       int64              `json:"logical_bytes"`
+	ContentSHA256      string             `json:"content_sha256"`
+	SourceFamily       string             `json:"source_family"`
+	ContentKind        string             `json:"content_kind"`
+	TimezoneCandidate  string             `json:"timezone_candidate"`
+	BatchSequenceStart int                `json:"batch_sequence_start"`
+	Parts              []WorkerSourcePart `json:"parts"`
 }
 
 type WorkerCleanupCandidate struct {

@@ -103,6 +103,25 @@ func TestProcessOneImportUsesGlobalBatchSequenceAndCompletesEveryFile(t *testing
 	}
 }
 
+func TestProcessOneImportResumesAtDurableBatchSequence(t *testing.T) {
+	data := []byte(`{"records":[{"type":"heart_rate","record_id":"synthetic-resume","started_at":"2026-01-02T03:04:05Z","unit":"bpm","value":72}]}`)
+	runtime := &fakeWorkerRuntime{
+		lease: supabase.WorkerLease{JobID: "job", ImportID: "import", LeaseGeneration: "generation"},
+		parts: map[string][]byte{"resume-part": data},
+	}
+	runtime.files = []supabase.WorkerSourceFile{sourceFile("resume-file", "resume-part", data)}
+	runtime.files[0].BatchSequenceStart = 7
+	service := workerTriggerService{client: runtime, email: "synthetic", password: "synthetic"}
+
+	progress, err := service.ProcessOneImport(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(runtime.batchSequences, []int{7}) || progress.NormalizedRecordCount != 1 {
+		t.Fatalf("worker did not resume at durable batch sequence: batches=%#v progress=%#v", runtime.batchSequences, progress)
+	}
+}
+
 func TestProcessOneImportCheckpointsZeroByteSourceWithWarning(t *testing.T) {
 	runtime := &fakeWorkerRuntime{
 		lease: supabase.WorkerLease{JobID: "job", ImportID: "import", LeaseGeneration: "generation"},
