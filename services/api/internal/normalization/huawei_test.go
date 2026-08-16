@@ -141,6 +141,17 @@ func TestParseHuaweiJSONMapsNestedHuaweiActivityExportArray(t *testing.T) {
 	}
 }
 
+func TestParseHuaweiJSONMapsWrappedHuaweiActivityExportArray(t *testing.T) {
+	input := `{"motionPathData":[{"sportType":"4","startTime":1767315845000,"totalTime":1800000,"totalDistance":5000}]}`
+	result, err := ParseHuaweiJSON(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Workouts) != 1 || result.Workouts[0].WorkoutType != "running" {
+		t.Fatalf("unexpected wrapped Huawei activity: %#v", result)
+	}
+}
+
 func TestRepairMotionMapDecimalKeysIsNarrowAndStrict(t *testing.T) {
 	repaired, err := RepairMotionMapDecimalKeys([]byte(`{"paceMap":{1.5:12,"2.0":20}}`))
 	if err != nil || string(repaired) != `{"paceMap":{"1.5":12,"2.0":20}}` {
