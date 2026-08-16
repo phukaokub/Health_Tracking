@@ -361,10 +361,11 @@ func appendHuaweiActivityJSON(result *Result, raw []byte) (bool, error) {
 		return false, &SafeError{Code: "source_schema_unsupported"}
 	}
 	if len(activity.MotionPathData) > 0 && len(activity.SportType) == 0 {
-		matched := false
+		matched := true
 		for _, nested := range activity.MotionPathData {
 			if len(nested) > maxHuaweiRecordBytes(nested) {
-				return false, &SafeError{Code: "json_token_too_large"}
+				result.Warnings = append(result.Warnings, Warning{Code: "source_detail_excluded"})
+				continue
 			}
 			childMatched, err := appendHuaweiActivityJSON(result, nested)
 			if err != nil {
