@@ -37,7 +37,10 @@ const (
 	// Huawei's top-level numeric export can contain tens of thousands of
 	// bounded records. Keep its larger count limit separate from the smaller
 	// generic array limit while remaining bounded by MaxInputBytes.
-	MaxHuaweiHealthRecordCount = 50000
+	// A single export can contain more than one hundred thousand bounded
+	// records. Keep a finite count limit while allowing the observed export
+	// shape to fit under MaxInputBytes.
+	MaxHuaweiHealthRecordCount = 200000
 	MaxRecordCount             = 10000
 	SourceFamily               = "huawei_health_json"
 )
