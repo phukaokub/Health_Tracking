@@ -145,6 +145,27 @@ func TestProcessOneImportExcludesValidUnsupportedSourceShape(t *testing.T) {
 	}
 }
 
+func TestProcessOneImportExcludesTruncatedSourceShape(t *testing.T) {
+	data := []byte(`[{"sportType":4,"startTime":1767315845000,"totalTime":1800000}`)
+	runtime := &fakeWorkerRuntime{
+		lease: supabase.WorkerLease{JobID: "job", ImportID: "import", LeaseGeneration: "generation"},
+		parts: map[string][]byte{"truncated-part": data},
+	}
+	runtime.files = []supabase.WorkerSourceFile{sourceFile("truncated-file", "truncated-part", data)}
+	service := workerTriggerService{client: runtime, email: "synthetic", password: "synthetic"}
+
+	progress, err := service.ProcessOneImport(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(runtime.completedFileIDs, []string{"truncated-file"}) ||
+		progress.ProcessedFileCount != 1 || progress.NormalizedRecordCount != 0 ||
+		!reflect.DeepEqual(progress.WarningCodes, []string{"json_truncated"}) ||
+		runtime.finishedState != "completed_with_warnings" {
+		t.Fatalf("unexpected truncated-source result: %#v state=%s", progress, runtime.finishedState)
+	}
+}
+
 func TestCleanupRawSourcesReturnsCountsWithoutIdentifiers(t *testing.T) {
 	runtime := &fakeWorkerRuntime{cleanupCandidates: []supabase.WorkerCleanupCandidate{
 		{ImportID: "synthetic-import", ObjectPaths: []string{"one", "two"}},
