@@ -5,6 +5,7 @@ import type { DirectoryScanResult, ScannedFile } from "./scanner.types";
 
 const MANIFEST_PAGE_FILES = 1_000;
 const MANIFEST_PAGE_BYTES = 900 * 1_024;
+export const CURRENT_PARSER_VERSION = "huawei-json-v3";
 
 export type ImportSourceKind = "directory" | "zip";
 
@@ -26,6 +27,7 @@ export type ImportFilePlan = {
   logical_bytes: number;
   content_sha256: string;
   content_kind: string;
+  parser_version_target?: string;
   parts: ImportPartPlan[];
 };
 
@@ -43,6 +45,7 @@ export type ImportSnapshot = {
     normalized_record_count?: number;
     warning_codes?: string[];
     last_checkpoint_at?: string;
+    parser_version?: string;
   } | null;
   normalization?: {
     normalized_record_count: number;
@@ -79,6 +82,7 @@ export type ManifestFile = {
   logical_bytes: number;
   content_sha256: string;
   parts: Array<{ part_index: number; byte_offset: number; byte_length: number; content_sha256: string }>;
+  parser_version_target?: string;
 };
 
 export async function createImport(result: DirectoryScanResult, sourceKind: ImportSourceKind): Promise<ImportSnapshot> {
@@ -88,7 +92,7 @@ export async function createImport(result: DirectoryScanResult, sourceKind: Impo
   }
   const pages = paginateManifestFiles(files);
   const totalLogicalBytes = files.reduce((total, file) => total + file.logical_bytes, 0);
-  const idempotencyHash = await sha256Text(JSON.stringify({ version: 1, sourceKind, files }));
+  const idempotencyHash = await sha256Text(JSON.stringify({ version: 2, parserVersion: CURRENT_PARSER_VERSION, sourceKind, files }));
   const clientIdempotencyKey = uuidFromSHA256(idempotencyHash);
   const firstFiles = pages[0]!;
   let snapshot: ImportSnapshot | undefined;
@@ -130,6 +134,10 @@ export function completeImport(importID: string): Promise<ImportSnapshot> {
   return apiFetch(`/api/v1/imports/${importID}/complete`, { method: "POST" });
 }
 
+export function requeueImport(importID: string): Promise<ImportSnapshot> {
+  return apiFetch(`/api/v1/imports/${importID}/requeue`, { method: "POST" });
+}
+
 export function deleteImport(importID: string): Promise<ImportSnapshot> {
   return apiFetch(`/api/v1/imports/${importID}`, { method: "DELETE" });
 }
@@ -149,6 +157,7 @@ function toManifestFile(file: ScannedFile): ManifestFile[] {
     source_reference_hash: file.sourceReferenceHash,
     source_family: file.sourceFamily,
     content_kind: file.contentKind,
+    parser_version_target: CURRENT_PARSER_VERSION,
     inclusion_state: file.inclusionState,
     logical_bytes: file.logicalBytes,
     content_sha256: file.contentSha256,

@@ -12,6 +12,7 @@ import (
 
 const (
 	ManifestVersion          = 1
+	CurrentParserVersion     = "huawei-json-v3"
 	MaxManifestBytes         = 1 * 1024 * 1024
 	MaxLogicalPartBytes      = 20 * 1024 * 1024
 	TUSTransportChunkBytes   = 6 * 1024 * 1024
@@ -20,8 +21,9 @@ const (
 )
 
 var (
-	sha256Pattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
-	uuidPattern   = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
+	sha256Pattern        = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	uuidPattern          = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
+	parserVersionPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
 )
 
 type SourceKind string
@@ -204,8 +206,9 @@ type ManifestPart struct {
 
 type ManifestFile struct {
 	FileDescriptor
-	InclusionState string         `json:"inclusion_state"`
-	Parts          []ManifestPart `json:"parts"`
+	ParserVersionTarget string         `json:"parser_version_target,omitempty"`
+	InclusionState      string         `json:"inclusion_state"`
+	Parts               []ManifestPart `json:"parts"`
 }
 
 type ManifestCreateRequest struct {
@@ -265,6 +268,9 @@ func validateManifestFile(file ManifestFile) error {
 	if err := file.FileDescriptor.Validate(); err != nil {
 		return err
 	}
+	if file.ParserVersionTarget != "" && !parserVersionPattern.MatchString(file.ParserVersionTarget) {
+		return errors.New("parser_version_target must be a safe parser version")
+	}
 	if file.InclusionState != "planned" && file.InclusionState != "skipped_duplicate" && file.InclusionState != "excluded" {
 		return errors.New("invalid inclusion_state")
 	}
@@ -309,6 +315,7 @@ type FilePlan struct {
 	InclusionState      string     `json:"inclusion_state"`
 	LogicalBytes        int64      `json:"logical_bytes"`
 	ContentSHA256       string     `json:"content_sha256"`
+	ParserVersionTarget string     `json:"parser_version_target,omitempty"`
 	Parts               []PartPlan `json:"parts"`
 }
 
@@ -316,6 +323,7 @@ type JobSnapshot struct {
 	ID                    string   `json:"id"`
 	State                 string   `json:"state"`
 	JobType               string   `json:"job_type"`
+	ParserVersion         string   `json:"parser_version,omitempty"`
 	ProcessedFileCount    int      `json:"processed_file_count,omitempty"`
 	NormalizedRecordCount int64    `json:"normalized_record_count,omitempty"`
 	WarningCodes          []string `json:"warning_codes,omitempty"`

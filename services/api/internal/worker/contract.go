@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	ParserVersion          = "huawei-json-v2"
+	ParserVersion          = "huawei-json-v3"
 	LeaseDuration          = 240 * time.Second
 	RawPartsRecoveryWindow = 24 * time.Hour
 	MaxAttempts            = 3

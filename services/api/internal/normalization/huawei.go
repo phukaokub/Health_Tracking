@@ -24,7 +24,7 @@ var (
 )
 
 const (
-	ParserVersion = "huawei-json-v2"
+	ParserVersion = "huawei-json-v3"
 	// A logical file may be larger than one Storage part. The worker assembles
 	// ordered parts and still bounds each part at 20 MiB before calling the
 	// parser. Keep the logical-file cap aligned with the staging benchmark.
@@ -78,6 +78,25 @@ type Result struct {
 	Warnings         []Warning         `json:"warnings"`
 	LegacyXLSQuality *LegacyXLSQuality `json:"legacy_xls_quality,omitempty"`
 }
+
+// AssignCanonicalDays fills the daily grouping fields after parsing. Huawei
+// timestamps are normalized to UTC, but daily reports must use the import's
+// selected IANA timezone rather than the worker host timezone.
+func AssignCanonicalDays(result *Result, timezone string) {
+	location, err := time.LoadLocation(strings.TrimSpace(timezone))
+	if err != nil {
+		location = time.UTC
+	}
+	for index := range result.Samples {
+		if result.Samples[index].CanonicalDay == "" {
+			result.Samples[index].CanonicalDay = result.Samples[index].StartedAt.In(location).Format("2006-01-02")
+		}
+		if result.Samples[index].TimezoneResolution == "" {
+			result.Samples[index].TimezoneResolution = "import_timezone"
+		}
+	}
+}
+
 type SleepSession struct {
 	SourceRecordHash string       `json:"source_record_hash"`
 	StartedAt        time.Time    `json:"started_at"`
@@ -559,8 +578,8 @@ func appendHuaweiSportDay(result *Result, day huaweiSportDay) {
 
 		activityType, knownActivity := huaweiSportType(int(sportTypeValue))
 		recordID := huaweiIdentityText(minute.DataID, fmt.Sprintf("sport-minute-%d", minuteIndex))
+		recordHash := hash(strings.Join([]string{recordID, fmt.Sprintf("%d", int(sportTypeValue)), start.Format(time.RFC3339Nano), end.Format(time.RFC3339Nano)}, "|"))
 		if knownActivity {
-			recordHash := hash(strings.Join([]string{recordID, fmt.Sprintf("%d", int(sportTypeValue)), start.Format(time.RFC3339Nano), end.Format(time.RFC3339Nano)}, "|"))
 			result.Activities = append(result.Activities, Activity{
 				SourceRecordHash: recordHash,
 				ActivityType:     activityType,
@@ -572,6 +591,36 @@ func appendHuaweiSportDay(result *Result, day huaweiSportDay) {
 			})
 		} else {
 			appendWarning(result, Warning{Code: "metric_mapping_unknown"})
+		}
+		if knownActivity {
+			workout := Workout{
+				SourceRecordHash: recordHash,
+				WorkoutType:      activityType,
+				StartedAt:        start,
+				EndedAt:          end,
+				DurationSeconds:  int64(end.Sub(start).Seconds()),
+				ParserVersion:    ParserVersion,
+			}
+			var distance, calories float64
+			var hasDistance, hasCalories bool
+			for _, info := range minute.SportBasicInfos {
+				if value, ok := huaweiNumber(info.Distance); ok && value >= 0 {
+					distance += value
+					hasDistance = true
+				}
+				if value, ok := huaweiNumber(info.Calorie); ok && value >= 0 {
+					calories += value
+					hasCalories = true
+				}
+			}
+			if hasDistance {
+				workout.DistanceMetres = strconv.FormatFloat(distance, 'f', -1, 64)
+			}
+			if hasCalories {
+				workout.EnergyKilocalories = strconv.FormatFloat(calories, 'f', -1, 64)
+			}
+			workout.DedupeKey = hash(strings.Join([]string{"v2", SourceFamily, "workout", recordHash, activityType, start.Format(time.RFC3339Nano), end.Format(time.RFC3339Nano), workout.DistanceMetres, workout.EnergyKilocalories}, "|"))
+			result.Workouts = append(result.Workouts, workout)
 		}
 
 		for infoIndex, info := range minute.SportBasicInfos {

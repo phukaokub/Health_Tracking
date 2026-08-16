@@ -8,6 +8,9 @@ import (
 	"io"
 	"os"
 	"testing"
+	"time"
+
+	"github.com/phukaokub/Health_Tracking/services/api/internal/normalization"
 )
 
 func TestParsePrivatePartsDispatchesLegacyXLS(t *testing.T) {
@@ -50,6 +53,28 @@ func TestParsePrivatePartsVerifiesPartsAndExcludesSensitiveFamilies(t *testing.T
 	records := CanonicalRecords(result)
 	if len(records) != 1 || records[0]["kind"] != "sample" {
 		t.Fatalf("sensitive records reached canonical contract: %#v", records)
+	}
+}
+
+func TestCanonicalRecordsCarryDailyGroupingAndNestedWorkoutData(t *testing.T) {
+	result := normalization.Result{
+		Samples: []normalization.Sample{{
+			SourceFamily: "huawei_health_json", SourceType: "steps", SourceRecordHash: "hash",
+			StartedAt: time.Date(2026, 1, 1, 23, 30, 0, 0, time.UTC), EndedAt: time.Date(2026, 1, 1, 23, 31, 0, 0, time.UTC),
+			Unit: "count", SourceUnit: "count", Value: "12", DedupeKey: "dedupe", ParserVersion: normalization.ParserVersion,
+		}},
+		Workouts: []normalization.Workout{{
+			SourceRecordHash: "workout-hash", WorkoutType: "walking", StartedAt: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC), EndedAt: time.Date(2026, 1, 2, 0, 1, 0, 0, time.UTC),
+			DurationSeconds: 60, DistanceMetres: "80", EnergyKilocalories: "3", DedupeKey: "workout-dedupe", ParserVersion: normalization.ParserVersion,
+		}},
+	}
+	normalization.AssignCanonicalDays(&result, "Asia/Bangkok")
+	records := CanonicalRecords(result)
+	if records[0]["canonical_day"] != "2026-01-02" || records[0]["timezone_resolution"] != "import_timezone" {
+		t.Fatalf("daily grouping fields missing: %#v", records[0])
+	}
+	if records[1]["kind"] != "workout" || records[1]["distance_metres"] != "80" || records[1]["energy_kilocalories"] != "3" {
+		t.Fatalf("nested workout fields missing: %#v", records[1])
 	}
 }
 
