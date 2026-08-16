@@ -152,6 +152,23 @@ func TestParseHuaweiJSONMapsWrappedHuaweiActivityExportArray(t *testing.T) {
 	}
 }
 
+func TestParseHuaweiJSONMapsHuaweiHealthSamplePointExport(t *testing.T) {
+	input := `[{"type":7,"recordId":"health-record","samplePoints":[{"startTime":1767315845000,"endTime":1767315905000,"value":"78.0","key":"DATA_POINT_DYNAMIC_HEARTRATE"},{"startTime":1767315845000,"value":"120","key":"DATA_POINT_STEP_COUNT"}]}]`
+	result, err := ParseHuaweiJSON(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Samples) != 2 {
+		t.Fatalf("expected two Huawei samples, got %#v", result)
+	}
+	if result.Samples[0].SourceType != "heart_rate" || result.Samples[0].Unit != "bpm" || result.Samples[0].Value != "78" {
+		t.Fatalf("unexpected heart-rate sample: %#v", result.Samples[0])
+	}
+	if result.Samples[1].SourceType != "steps" || result.Samples[1].Unit != "count" || result.Samples[1].Value != "120" {
+		t.Fatalf("unexpected steps sample: %#v", result.Samples[1])
+	}
+}
+
 func TestRepairMotionMapDecimalKeysIsNarrowAndStrict(t *testing.T) {
 	repaired, err := RepairMotionMapDecimalKeys([]byte(`{"paceMap":{1.5:12,"2.0":20}}`))
 	if err != nil || string(repaired) != `{"paceMap":{"1.5":12,"2.0":20}}` {
