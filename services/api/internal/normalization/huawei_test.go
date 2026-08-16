@@ -141,6 +141,13 @@ func TestParseHuaweiJSONMapsNestedHuaweiActivityExportArray(t *testing.T) {
 	}
 }
 
+func TestParseHuaweiJSONAllowsBoundedLargeNestedHuaweiHealthRecord(t *testing.T) {
+	input := `{"motionPathData":[{"type":7,"samplePoints":[],"boundedMetadata":"` + strings.Repeat("x", MaxRecordBytes+1) + `"}]}`
+	if _, err := ParseHuaweiJSON(strings.NewReader(input)); err != nil {
+		t.Fatalf("large nested Huawei Health record should remain within its bounded limit: %v", err)
+	}
+}
+
 func TestParseHuaweiJSONMapsWrappedHuaweiActivityExportArray(t *testing.T) {
 	input := `{"motionPathData":[{"sportType":"4","startTime":1767315845000,"totalTime":1800000,"totalDistance":5000}]}`
 	result, err := ParseHuaweiJSON(strings.NewReader(input))

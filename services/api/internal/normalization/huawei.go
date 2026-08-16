@@ -363,7 +363,7 @@ func appendHuaweiActivityJSON(result *Result, raw []byte) (bool, error) {
 	if len(activity.MotionPathData) > 0 && len(activity.SportType) == 0 {
 		matched := false
 		for _, nested := range activity.MotionPathData {
-			if len(nested) > MaxRecordBytes {
+			if len(nested) > maxHuaweiRecordBytes(nested) {
 				return false, &SafeError{Code: "json_token_too_large"}
 			}
 			childMatched, err := appendHuaweiActivityJSON(result, nested)
