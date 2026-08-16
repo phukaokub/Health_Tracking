@@ -45,7 +45,7 @@ test("ZIP upload pauses, survives refresh and queues exactly one owner-scoped jo
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await signInThroughUI(page, owner);
-  await page.getByRole("link", { name: "Import health data" }).click();
+  await page.getByRole("link", { name: "Import", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Review files before import" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Choose a folder" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Choose a ZIP file" })).toBeVisible();
@@ -96,7 +96,7 @@ test("ZIP upload pauses, survives refresh and queues exactly one owner-scoped jo
 
 test("cancelling an active ZIP upload deletes caller-owned objects and metadata", async ({ page }) => {
   await signInThroughUI(page, owner);
-  await page.getByRole("link", { name: "Import health data" }).click();
+  await page.getByRole("link", { name: "Import", exact: true }).click();
   const archive = syntheticZIP(8 * 1024 * 1024, 29);
   await selectZIP(page, archive);
   await expect(page.getByText(/1 supported files/)).toBeVisible();
@@ -118,8 +118,8 @@ async function signInThroughUI(page, user) {
   await page.getByLabel("Email").fill(user.email);
   await page.getByLabel("Password").fill(user.password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page).toHaveURL(/\/account\?status=welcome$/);
-  await expect(page.getByText("Account and privacy")).toBeVisible();
+  await expect(page).toHaveURL(/\/dashboard\?status=welcome$/);
+  await expect(page.getByRole("heading", { name: "Your current wellness picture" })).toBeVisible();
 }
 
 async function selectZIP(page, archive) {

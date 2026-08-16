@@ -114,8 +114,8 @@ func (service workerTriggerService) ProcessOneImport(ctx context.Context) (worke
 			// Huawei exports include unrelated JSON documents. They are safe to
 			// exclude when the stream is valid but has no approved record shape;
 			// malformed bytes and checksum failures still fail the job.
-			if parseErr.Error() == "source_schema_unsupported" {
-				warnings := []string{"source_schema_unsupported"}
+			if isSkippableSourceError(parseErr) {
+				warnings := []string{normalization.SafeCode(parseErr)}
 				if err := service.client.CompleteWorkerFile(ctx, identity, *lease, file.ID, 0, warnings); err != nil {
 					return service.fail(ctx, identity, *lease, "file_checkpoint_failed", true)
 				}
@@ -181,6 +181,11 @@ func (service workerTriggerService) ProcessOneImport(ctx context.Context) (worke
 		return worker.Progress{}, err
 	}
 	return progress, progress.Validate()
+}
+
+func isSkippableSourceError(err error) bool {
+	code := normalization.SafeCode(err)
+	return code == "source_schema_unsupported" || code == "json_truncated"
 }
 
 func (service workerTriggerService) CleanupRawSources(ctx context.Context) (worker.CleanupProgress, error) {
