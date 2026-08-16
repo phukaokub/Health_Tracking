@@ -207,7 +207,7 @@ func (client *Client) ClaimWorkerImport(ctx context.Context, identity WorkerIden
 		return nil, errors.New("worker_configuration_invalid")
 	}
 	var rows []WorkerLease
-	if err := client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_claim_import_job", map[string]any{"p_parser_version": parserVersion, "p_lease_seconds": leaseSeconds}, &rows); err != nil {
+	if err := client.requestWorkerJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_claim_import_job", map[string]any{"p_parser_version": parserVersion, "p_lease_seconds": leaseSeconds}, &rows); err != nil {
 		return nil, err
 	}
 	if len(rows) == 0 {
@@ -218,7 +218,7 @@ func (client *Client) ClaimWorkerImport(ctx context.Context, identity WorkerIden
 
 func (client *Client) WorkerImportSource(ctx context.Context, identity WorkerIdentity, lease WorkerLease) ([]WorkerSourceFile, error) {
 	var files []WorkerSourceFile
-	if err := client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_import_source", map[string]string{"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration}, &files); err != nil {
+	if err := client.requestWorkerJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_import_source", map[string]string{"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration}, &files); err != nil {
 		return nil, err
 	}
 	return files, nil
@@ -226,7 +226,7 @@ func (client *Client) WorkerImportSource(ctx context.Context, identity WorkerIde
 
 func (client *Client) RenewWorkerImport(ctx context.Context, identity WorkerIdentity, lease WorkerLease, leaseSeconds int) (bool, error) {
 	var renewed bool
-	err := client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_renew_import_job", map[string]any{
+	err := client.requestWorkerJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_renew_import_job", map[string]any{
 		"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration,
 		"p_lease_seconds": leaseSeconds,
 	}, &renewed)
@@ -261,14 +261,14 @@ func (client *Client) ReadWorkerPart(ctx context.Context, identity WorkerIdentit
 // PersistWorkerBatch accepts only canonical typed records and safe warning
 // codes. The database derives owner/import provenance from the active lease.
 func (client *Client) PersistWorkerBatch(ctx context.Context, identity WorkerIdentity, lease WorkerLease, fileID string, batchSequence int, records []map[string]any, warningCodes []string) error {
-	return client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_persist_normalized_batch", map[string]any{
+	return client.requestWorkerJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_persist_normalized_batch", map[string]any{
 		"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration, "p_import_file_id": fileID,
 		"p_batch_sequence": batchSequence, "p_records": records, "p_warning_codes": warningCodes,
 	}, nil)
 }
 
 func (client *Client) PersistLegacyXLSQuality(ctx context.Context, identity WorkerIdentity, lease WorkerLease, fileID string, quality normalization.LegacyXLSQuality) error {
-	return client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_persist_legacy_xls_quality", map[string]any{
+	return client.requestWorkerJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_persist_legacy_xls_quality", map[string]any{
 		"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration, "p_import_file_id": fileID,
 		"p_approved_sheet_count": quality.ApprovedSheetCount, "p_excluded_sheet_count": quality.ExcludedSheetCount,
 		"p_unknown_sheet_count": quality.UnknownSheetCount, "p_covered_date_count": quality.CoveredDateCount,
@@ -277,7 +277,7 @@ func (client *Client) PersistLegacyXLSQuality(ctx context.Context, identity Work
 }
 
 func (client *Client) CompleteWorkerFile(ctx context.Context, identity WorkerIdentity, lease WorkerLease, fileID string, normalizedRecordCount int64, warningCodes []string) error {
-	return client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_complete_import_file", map[string]any{
+	return client.requestWorkerJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_complete_import_file", map[string]any{
 		"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration,
 		"p_import_file_id": fileID, "p_normalized_record_count": normalizedRecordCount,
 		"p_warning_codes": warningCodes,
@@ -286,7 +286,7 @@ func (client *Client) CompleteWorkerFile(ctx context.Context, identity WorkerIde
 
 func (client *Client) RetryWorkerImport(ctx context.Context, identity WorkerIdentity, lease WorkerLease, warningCode string) (string, error) {
 	var state string
-	err := client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_retry_import_job", map[string]any{
+	err := client.requestWorkerJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_retry_import_job", map[string]any{
 		"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration,
 		"p_warning_code": warningCode,
 	}, &state)
@@ -295,13 +295,13 @@ func (client *Client) RetryWorkerImport(ctx context.Context, identity WorkerIden
 
 func (client *Client) FinishWorkerImport(ctx context.Context, identity WorkerIdentity, lease WorkerLease, terminalState string, warningCodes []string) (bool, error) {
 	var finished bool
-	err := client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_finish_import_job", map[string]any{"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration, "p_terminal_state": terminalState, "p_warning_codes": warningCodes}, &finished)
+	err := client.requestWorkerJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_finish_import_job", map[string]any{"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration, "p_terminal_state": terminalState, "p_warning_codes": warningCodes}, &finished)
 	return finished, err
 }
 
 func (client *Client) ListWorkerRawCleanup(ctx context.Context, identity WorkerIdentity, limit int) ([]WorkerCleanupCandidate, error) {
 	var candidates []WorkerCleanupCandidate
-	err := client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_raw_cleanup_source", map[string]int{"p_limit": limit}, &candidates)
+	err := client.requestWorkerJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_raw_cleanup_source", map[string]int{"p_limit": limit}, &candidates)
 	return candidates, err
 }
 
@@ -323,7 +323,7 @@ func (client *Client) DeleteWorkerObjects(ctx context.Context, identity WorkerId
 
 func (client *Client) FinishWorkerRawCleanup(ctx context.Context, identity WorkerIdentity, importID string) (bool, error) {
 	var finished bool
-	err := client.requestJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_finish_raw_cleanup", map[string]string{"p_import_id": importID}, &finished)
+	err := client.requestWorkerJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_finish_raw_cleanup", map[string]string{"p_import_id": importID}, &finished)
 	return finished, err
 }
 
@@ -367,6 +367,14 @@ func escapeStoragePath(objectPath string) string {
 }
 
 func (client *Client) requestJSON(ctx context.Context, accessToken, method, path string, body, response any) error {
+	return client.requestJSONWithHTTPClient(client.httpClient, ctx, accessToken, method, path, body, response)
+}
+
+func (client *Client) requestWorkerJSON(ctx context.Context, accessToken, method, path string, body, response any) error {
+	return client.requestJSONWithHTTPClient(client.workerClient, ctx, accessToken, method, path, body, response)
+}
+
+func (client *Client) requestJSONWithHTTPClient(httpClient *http.Client, ctx context.Context, accessToken, method, path string, body, response any) error {
 	encoded, err := json.Marshal(body)
 	if err != nil {
 		return fmt.Errorf("encode supabase request: %w", err)
@@ -378,7 +386,7 @@ func (client *Client) requestJSON(ctx context.Context, accessToken, method, path
 	req.Header.Set("apikey", client.publishableKey)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Content-Type", "application/json")
-	res, err := client.httpClient.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("send supabase request: %w", err)
 	}
