@@ -45,7 +45,7 @@ test("ZIP upload pauses, survives refresh and queues exactly one owner-scoped jo
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await signInThroughUI(page, owner);
-  await page.getByRole("link", { name: "Import health data" }).click();
+  await page.getByRole("link", { name: "Import", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Review files before import" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Choose a folder" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Choose a ZIP file" })).toBeVisible();
