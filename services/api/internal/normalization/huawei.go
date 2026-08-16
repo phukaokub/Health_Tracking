@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -22,7 +23,7 @@ var (
 )
 
 const (
-	ParserVersion = "huawei-json-v1"
+	ParserVersion = "huawei-json-v2"
 	// A logical file may be larger than one Storage part. The worker assembles
 	// ordered parts and still bounds each part at 20 MiB before calling the
 	// parser. Keep the logical-file cap aligned with the staging benchmark.
@@ -119,14 +120,39 @@ type sourceSleepStage struct {
 	EndedAt   string `json:"ended_at"`
 }
 
-// ParseHuaweiJSON consumes the records array incrementally. It never returns
-// input text in errors and drops unsupported sensitive record families.
+// huaweiActivitySummary is the safe subset of Huawei's exported activity
+// array. The export also contains an attribute string with route and raw
+// detail data; that field is intentionally not represented here.
+type huaweiActivitySummary struct {
+	SportType      json.RawMessage   `json:"sportType"`
+	StartTime      json.RawMessage   `json:"startTime"`
+	EndTime        json.RawMessage   `json:"endTime"`
+	TotalTime      json.RawMessage   `json:"totalTime"`
+	TotalDistance  json.RawMessage   `json:"totalDistance"`
+	TotalCalories  json.RawMessage   `json:"totalCalories"`
+	MotionPathData []json.RawMessage `json:"motionPathData"`
+}
+
+// ParseHuaweiJSON consumes either the internal records contract or Huawei's
+// exported activity array incrementally. It never returns input text in
+// errors and drops unsupported sensitive record families.
 func ParseHuaweiJSON(reader io.Reader) (Result, error) {
 	decoder := json.NewDecoder(io.LimitReader(reader, MaxInputBytes+1))
 	decoder.UseNumber()
-	if token, err := decoder.Token(); err != nil || token != json.Delim('{') {
+	token, err := decoder.Token()
+	if err != nil {
 		return Result{}, safeJSONError(err)
 	}
+	if token == json.Delim('[') {
+		return parseHuaweiActivityArray(decoder)
+	}
+	if token != json.Delim('{') {
+		return Result{}, &SafeError{Code: "source_schema_unsupported"}
+	}
+	return parseRecordsObject(decoder)
+}
+
+func parseRecordsObject(decoder *json.Decoder) (Result, error) {
 	var result Result
 	foundRecords := false
 	for decoder.More() {
@@ -220,6 +246,227 @@ func ParseHuaweiJSON(reader io.Reader) (Result, error) {
 		return Result{}, &SafeError{Code: "source_schema_unsupported"}
 	}
 	return result, nil
+}
+
+func parseHuaweiActivityArray(decoder *json.Decoder) (Result, error) {
+	var result Result
+	foundActivity := false
+	for index := 0; decoder.More(); index++ {
+		if index >= MaxRecordCount {
+			return Result{}, &SafeError{Code: "json_token_too_large"}
+		}
+		var raw json.RawMessage
+		if err := decoder.Decode(&raw); err != nil {
+			return Result{}, safeJSONError(err)
+		}
+		if len(raw) > MaxRecordBytes {
+			return Result{}, &SafeError{Code: "json_token_too_large"}
+		}
+		matched, err := appendHuaweiActivityJSON(&result, raw)
+		if err != nil {
+			return Result{}, err
+		}
+		foundActivity = foundActivity || matched
+	}
+	if token, err := decoder.Token(); err != nil || token != json.Delim(']') {
+		return Result{}, safeJSONError(err)
+	}
+	if !foundActivity {
+		return Result{}, &SafeError{Code: "source_schema_unsupported"}
+	}
+	return result, nil
+}
+
+func appendHuaweiActivityJSON(result *Result, raw []byte) (bool, error) {
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &keys); err != nil {
+		return false, &SafeError{Code: "source_schema_unsupported"}
+	}
+	if _, isRecord := keys["type"]; isRecord {
+		var record sourceRecord
+		if err := json.Unmarshal(raw, &record); err != nil {
+			return false, &SafeError{Code: "source_schema_unsupported"}
+		}
+		if err := appendSourceRecord(result, record); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+
+	var activity huaweiActivitySummary
+	if err := json.Unmarshal(raw, &activity); err != nil {
+		return false, &SafeError{Code: "source_schema_unsupported"}
+	}
+	if len(activity.MotionPathData) > 0 && len(activity.SportType) == 0 {
+		matched := false
+		for _, nested := range activity.MotionPathData {
+			if len(nested) > MaxRecordBytes {
+				return false, &SafeError{Code: "json_token_too_large"}
+			}
+			childMatched, err := appendHuaweiActivityJSON(result, nested)
+			if err != nil {
+				return false, err
+			}
+			matched = matched || childMatched
+		}
+		return matched, nil
+	}
+	if len(activity.SportType) == 0 {
+		return false, nil
+	}
+	workout, warning, err := normalizeHuaweiActivity(activity)
+	if err != nil {
+		return false, err
+	}
+	if warning != nil {
+		result.Warnings = append(result.Warnings, *warning)
+	}
+	if workout != nil {
+		result.Workouts = append(result.Workouts, *workout)
+	}
+	return true, nil
+}
+
+func appendSourceRecord(result *Result, record sourceRecord) error {
+	if record.Type == "sleep_session" {
+		session, warning, err := normalizeSleep(record)
+		if err != nil {
+			return err
+		}
+		if warning != nil {
+			result.Warnings = append(result.Warnings, *warning)
+		}
+		if session != nil {
+			result.SleepSessions = append(result.SleepSessions, *session)
+		}
+		return nil
+	}
+	if record.Type == "activity" {
+		activity, warning, err := normalizeActivity(record)
+		if err != nil {
+			return err
+		}
+		if warning != nil {
+			result.Warnings = append(result.Warnings, *warning)
+		}
+		if activity != nil {
+			result.Activities = append(result.Activities, *activity)
+		}
+		return nil
+	}
+	if record.Type == "workout_summary" {
+		workout, err := normalizeWorkout(record)
+		if err != nil {
+			return err
+		}
+		if workout != nil {
+			result.Workouts = append(result.Workouts, *workout)
+		}
+		return nil
+	}
+	sample, warning, err := normalizeRecord(record)
+	if err != nil {
+		return err
+	}
+	if warning != nil {
+		result.Warnings = append(result.Warnings, *warning)
+	}
+	if sample != nil {
+		result.Samples = append(result.Samples, *sample)
+	}
+	return nil
+}
+
+func normalizeHuaweiActivity(activity huaweiActivitySummary) (*Workout, *Warning, error) {
+	if len(activity.SportType) == 0 || len(activity.StartTime) == 0 {
+		return nil, nil, &SafeError{Code: "source_schema_unsupported"}
+	}
+	sportTypeValue, ok := huaweiNumber(activity.SportType)
+	if !ok || sportTypeValue != math.Trunc(sportTypeValue) || sportTypeValue < math.MinInt || sportTypeValue > math.MaxInt {
+		return nil, nil, &SafeError{Code: "source_schema_unsupported"}
+	}
+	sportType := int(sportTypeValue)
+	workoutType, ok := huaweiSportType(sportType)
+	if !ok {
+		return nil, &Warning{Code: "metric_mapping_unknown"}, nil
+	}
+	startMillis, ok := huaweiNumber(activity.StartTime)
+	if !ok {
+		return nil, nil, &SafeError{Code: "timestamp_invalid"}
+	}
+	start := huaweiEpoch(startMillis)
+	durationMillis, hasDuration := huaweiNumber(activity.TotalTime)
+	if !hasDuration && len(activity.EndTime) > 0 {
+		if endMillis, endOK := huaweiNumber(activity.EndTime); endOK {
+			durationMillis = endMillis - startMillis
+			hasDuration = true
+		}
+	}
+	if !hasDuration || durationMillis <= 0 || durationMillis > float64((24*time.Hour).Milliseconds()) {
+		return nil, nil, &SafeError{Code: "timestamp_invalid"}
+	}
+	end := start.Add(time.Duration(durationMillis) * time.Millisecond)
+	recordID := fmt.Sprintf("activity:%d:%d:%d", sportType, int64(startMillis), int64(durationMillis))
+	recordHash := hash(recordID)
+	workout := &Workout{
+		SourceRecordHash: recordHash,
+		WorkoutType:      workoutType,
+		StartedAt:        start,
+		EndedAt:          end,
+		DurationSeconds:  int64(durationMillis / 1000),
+		ParserVersion:    ParserVersion,
+	}
+	if distance, ok := huaweiNumber(activity.TotalDistance); ok && distance >= 0 {
+		workout.DistanceMetres = strconv.FormatFloat(distance, 'f', -1, 64)
+	}
+	if calories, ok := huaweiNumber(activity.TotalCalories); ok && calories >= 0 {
+		// Huawei's activity export stores this field in milli-kilocalories.
+		workout.EnergyKilocalories = strconv.FormatFloat(calories/1000, 'f', -1, 64)
+	}
+	workout.DedupeKey = hash(strings.Join([]string{"v2", SourceFamily, "workout", recordHash, workout.WorkoutType, start.Format(time.RFC3339Nano), end.Format(time.RFC3339Nano), workout.DistanceMetres, workout.EnergyKilocalories}, "|"))
+	return workout, nil, nil
+}
+
+func huaweiSportType(value int) (string, bool) {
+	switch value {
+	case 5:
+		return "walking", true
+	case 4, 101:
+		return "running", true
+	case 3, 103:
+		return "cycling", true
+	case 102, 104:
+		return "swimming", true
+	case 2, 282:
+		return "hiking", true
+	case 111, 117, 118, 145:
+		return "other", true
+	default:
+		return "", false
+	}
+}
+
+func huaweiNumber(raw json.RawMessage) (float64, bool) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return 0, false
+	}
+	var number json.Number
+	if err := json.Unmarshal(raw, &number); err != nil {
+		var text string
+		if json.Unmarshal(raw, &text) != nil {
+			return 0, false
+		}
+		number = json.Number(strings.TrimSpace(text))
+	}
+	value, err := strconv.ParseFloat(string(number), 64)
+	return value, err == nil && !math.IsNaN(value) && !math.IsInf(value, 0)
+}
+
+func huaweiEpoch(value float64) time.Time {
+	if value < 100_000_000_000 {
+		return time.Unix(int64(value), int64((value-math.Trunc(value))*1_000_000_000)).UTC()
+	}
+	return time.UnixMilli(int64(value)).UTC()
 }
 
 func normalizeWorkout(record sourceRecord) (*Workout, error) {

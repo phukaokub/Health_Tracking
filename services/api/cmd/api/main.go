@@ -53,6 +53,8 @@ func main() {
 	importHandler := httpapi.RequireUser(verifier, httpapi.NewImportHandler(importClient))
 	mux.Handle("/api/v1/imports", importHandler)
 	mux.Handle("/api/v1/imports/", importHandler)
+	summaryHandler := httpapi.RequireUser(verifier, httpapi.NewSummaryHandler(importClient))
+	mux.Handle("/api/v1/summary", summaryHandler)
 	mux.Handle("/api/v1/worker/trigger", httpapi.NewWorkerTriggerHandler(
 		os.Getenv("WORKER_TRIGGER_SECRET"),
 		workerTriggerService{

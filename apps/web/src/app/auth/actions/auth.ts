@@ -17,7 +17,7 @@ export async function signInWithPassword(formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) redirect("/auth/sign-in?error=invalid-credentials");
 
-  redirect("/account?status=welcome");
+  redirect("/dashboard?status=welcome");
 }
 
 export async function signUpWithPassword(formData: FormData) {
@@ -35,7 +35,7 @@ export async function signUpWithPassword(formData: FormData) {
   if (error) redirect("/auth/sign-up?error=sign-up-failed");
   if (!data.session) redirect("/auth/sign-in?status=check-email");
 
-  redirect("/account?status=welcome");
+  redirect("/dashboard?status=welcome");
 }
 
 export async function signOut() {
@@ -79,5 +79,5 @@ export async function updatePassword(formData: FormData) {
   const { error } = await supabase.auth.updateUser({ password });
   if (error) redirect("/auth/reset-password?error=password-update-failed");
 
-  redirect("/account?status=password-updated");
+  redirect("/dashboard?status=password-updated");
 }

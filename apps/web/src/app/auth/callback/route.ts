@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const next = url.searchParams.get("next");
-  const destination = next?.startsWith("/") && !next.startsWith("//") ? next : "/account";
+  const destination = next?.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
 
   if (!code) return NextResponse.redirect(new URL("/auth/sign-in?error=auth-callback", url.origin));
 

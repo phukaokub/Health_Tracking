@@ -93,12 +93,36 @@ func (service workerTriggerService) ProcessOneImport(ctx context.Context) (worke
 		if sourceFamily == "" {
 			sourceFamily = "huawei-json"
 		}
+		// A verified zero-byte manifest entry has no Storage part to parse. It
+		// is safe to checkpoint it as an excluded source so one malformed file
+		// cannot strand the rest of an otherwise valid import.
+		if file.LogicalBytes == 0 && len(parts) == 0 {
+			warnings := []string{"empty_source_excluded"}
+			if err := service.client.CompleteWorkerFile(ctx, identity, *lease, file.ID, 0, warnings); err != nil {
+				return service.fail(ctx, identity, *lease, "file_checkpoint_failed", true)
+			}
+			progress.ProcessedFileCount++
+			progress.WarningCodes = mergeWarningCodes(progress.WarningCodes, warnings)
+			continue
+		}
 		timezone := file.TimezoneCandidate
 		if timezone == "" {
 			timezone = "UTC"
 		}
 		result, parseErr := worker.ParsePrivatePartsForSource(ctx, opener, parts, sourceFamily, timezone)
 		if parseErr != nil {
+			// Huawei exports include unrelated JSON documents. They are safe to
+			// exclude when the stream is valid but has no approved record shape;
+			// malformed bytes and checksum failures still fail the job.
+			if parseErr.Error() == "source_schema_unsupported" {
+				warnings := []string{"source_schema_unsupported"}
+				if err := service.client.CompleteWorkerFile(ctx, identity, *lease, file.ID, 0, warnings); err != nil {
+					return service.fail(ctx, identity, *lease, "file_checkpoint_failed", true)
+				}
+				progress.ProcessedFileCount++
+				progress.WarningCodes = mergeWarningCodes(progress.WarningCodes, warnings)
+				continue
+			}
 			code := "source_part_invalid"
 			if safeCode := normalization.SafeCode(parseErr); safeCode != "source_schema_unsupported" {
 				code = safeCode

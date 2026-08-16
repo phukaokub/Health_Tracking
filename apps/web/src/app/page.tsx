@@ -12,7 +12,10 @@ import {
 
 import { ReportPreview } from "@/components/landing/report-preview";
 import { buttonVariants } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
 
 const trustPoints = [
   "Import Huawei Health exports",
@@ -20,7 +23,18 @@ const trustPoints = [
   "Private by default — wellness, not diagnosis",
 ];
 
-export default function Home() {
+export default async function Home() {
+  let isAuthenticated = false;
+  if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+    try {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      isAuthenticated = Boolean(user);
+    } catch {
+      isAuthenticated = false;
+    }
+  }
+
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <section className="relative isolate min-h-screen overflow-hidden">
@@ -48,21 +62,27 @@ export default function Home() {
               <Link href="#how-it-works" className="transition hover:text-white">How it works</Link>
               <Link href="#sample-report" className="transition hover:text-white">Sample report</Link>
               <Link href="#privacy" className="transition hover:text-white">Privacy</Link>
-              <Link href="/auth/sign-in" className="transition hover:text-white">Sign in</Link>
+              {isAuthenticated ? <Link href="/account" className="transition hover:text-white">Profile</Link> : <Link href="/auth/sign-in" className="transition hover:text-white">Sign in</Link>}
               <Link
-                href="#start"
+                href={isAuthenticated ? "/dashboard" : "#start"}
                 className={cn(buttonVariants({ size: "lg" }), "h-10 rounded-full bg-white px-5 text-slate-950 hover:bg-slate-100")}
               >
-                Get started
+                {isAuthenticated ? "Open dashboard" : "Get started"}
               </Link>
             </div>
 
-            <button
-              className="grid size-10 place-items-center rounded-full border border-white/20 bg-white/10 md:hidden"
-              aria-label="Open navigation menu"
-            >
-              <Menu className="size-5" aria-hidden="true" />
-            </button>
+            <details className="relative md:hidden">
+              <summary className="grid size-10 cursor-pointer list-none place-items-center rounded-full border border-white/20 bg-white/10" aria-label="Open navigation menu">
+                <Menu className="size-5" aria-hidden="true" />
+              </summary>
+              <div className="absolute right-0 top-12 z-10 grid min-w-48 gap-1 rounded-2xl border border-white/15 bg-slate-950/95 p-2 text-sm shadow-2xl backdrop-blur">
+                <Link href="#how-it-works" className="rounded-xl px-3 py-2 text-slate-200 hover:bg-white/10">How it works</Link>
+                <Link href="#sample-report" className="rounded-xl px-3 py-2 text-slate-200 hover:bg-white/10">Sample report</Link>
+                <Link href="#privacy" className="rounded-xl px-3 py-2 text-slate-200 hover:bg-white/10">Privacy</Link>
+                <Link href={isAuthenticated ? "/account" : "/auth/sign-in"} className="rounded-xl px-3 py-2 text-slate-200 hover:bg-white/10">{isAuthenticated ? "Profile" : "Sign in"}</Link>
+                <Link href={isAuthenticated ? "/dashboard" : "/auth/sign-up"} className="rounded-xl bg-cyan-300 px-3 py-2 font-semibold text-slate-950">{isAuthenticated ? "Open dashboard" : "Get started"}</Link>
+              </div>
+            </details>
           </nav>
 
           <div className="grid flex-1 items-center gap-10 pb-14 pt-7 lg:grid-cols-[0.83fr_1.17fr] lg:gap-6 lg:pb-20">
@@ -84,10 +104,10 @@ export default function Home() {
 
               <div id="start" className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link
-                  href="#how-it-works"
+                  href={isAuthenticated ? "/dashboard" : "#how-it-works"}
                   className={cn(buttonVariants({ size: "lg" }), "h-12 rounded-full bg-cyan-300 px-6 text-slate-950 hover:bg-cyan-200")}
                 >
-                  Start with your export <ArrowRight className="size-4" aria-hidden="true" />
+                  {isAuthenticated ? "Continue to dashboard" : "Start with your export"} <ArrowRight className="size-4" aria-hidden="true" />
                 </Link>
                 <Link
                   href="#sample-report"
@@ -109,7 +129,7 @@ export default function Home() {
               </ul>
             </div>
 
-            <div className="relative mx-auto w-full max-w-2xl pb-8 pt-4 lg:translate-x-8 lg:pb-0">
+            <div id="sample-report" className="relative mx-auto w-full max-w-2xl pb-8 pt-4 lg:translate-x-8 lg:pb-0">
               <div className="absolute -inset-10 rounded-full bg-cyan-400/20 blur-3xl" />
               <div className="relative">
                 <ReportPreview />

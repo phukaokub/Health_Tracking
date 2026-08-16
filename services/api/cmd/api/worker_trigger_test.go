@@ -103,6 +103,48 @@ func TestProcessOneImportUsesGlobalBatchSequenceAndCompletesEveryFile(t *testing
 	}
 }
 
+func TestProcessOneImportCheckpointsZeroByteSourceWithWarning(t *testing.T) {
+	runtime := &fakeWorkerRuntime{
+		lease: supabase.WorkerLease{JobID: "job", ImportID: "import", LeaseGeneration: "generation"},
+		files: []supabase.WorkerSourceFile{{ID: "empty-file", LogicalBytes: 0}},
+	}
+	service := workerTriggerService{client: runtime, email: "synthetic", password: "synthetic"}
+
+	progress, err := service.ProcessOneImport(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(runtime.completedFileIDs, []string{"empty-file"}) {
+		t.Fatalf("empty source was not checkpointed: %#v", runtime.completedFileIDs)
+	}
+	if progress.ProcessedFileCount != 1 || progress.NormalizedRecordCount != 0 ||
+		!reflect.DeepEqual(progress.WarningCodes, []string{"empty_source_excluded"}) ||
+		runtime.finishedState != "completed_with_warnings" {
+		t.Fatalf("unexpected empty-source result: %#v state=%s", progress, runtime.finishedState)
+	}
+}
+
+func TestProcessOneImportExcludesValidUnsupportedSourceShape(t *testing.T) {
+	data := []byte(`{"metadata":{"synthetic":true}}`)
+	runtime := &fakeWorkerRuntime{
+		lease: supabase.WorkerLease{JobID: "job", ImportID: "import", LeaseGeneration: "generation"},
+		parts: map[string][]byte{"unsupported-part": data},
+	}
+	runtime.files = []supabase.WorkerSourceFile{sourceFile("unsupported-file", "unsupported-part", data)}
+	service := workerTriggerService{client: runtime, email: "synthetic", password: "synthetic"}
+
+	progress, err := service.ProcessOneImport(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(runtime.completedFileIDs, []string{"unsupported-file"}) ||
+		progress.ProcessedFileCount != 1 || progress.NormalizedRecordCount != 0 ||
+		!reflect.DeepEqual(progress.WarningCodes, []string{"source_schema_unsupported"}) ||
+		runtime.finishedState != "completed_with_warnings" {
+		t.Fatalf("unexpected unsupported-source result: %#v state=%s", progress, runtime.finishedState)
+	}
+}
+
 func TestCleanupRawSourcesReturnsCountsWithoutIdentifiers(t *testing.T) {
 	runtime := &fakeWorkerRuntime{cleanupCandidates: []supabase.WorkerCleanupCandidate{
 		{ImportID: "synthetic-import", ObjectPaths: []string{"one", "two"}},

@@ -11,10 +11,11 @@ export async function updateSession(request: NextRequest) {
   const supabase = createServerClient(url, publishableKey, {
     cookies: {
       getAll: () => request.cookies.getAll(),
-      setAll: (cookiesToSet) => {
+      setAll: (cookiesToSet, cacheHeaders) => {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         response = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, options, value }) => response.cookies.set(name, value, options));
+        Object.entries(cacheHeaders).forEach(([name, value]) => response.headers.set(name, value));
       },
     },
   });
