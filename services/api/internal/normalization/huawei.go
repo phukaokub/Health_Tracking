@@ -133,6 +133,22 @@ type huaweiActivitySummary struct {
 	MotionPathData []json.RawMessage `json:"motionPathData"`
 }
 
+type huaweiHealthRecord struct {
+	Type         json.RawMessage           `json:"type"`
+	RecordID     string                    `json:"recordId"`
+	StartTime    json.RawMessage           `json:"startTime"`
+	EndTime      json.RawMessage           `json:"endTime"`
+	SamplePoints []huaweiHealthSamplePoint `json:"samplePoints"`
+}
+
+type huaweiHealthSamplePoint struct {
+	Key       string          `json:"key"`
+	StartTime json.RawMessage `json:"startTime"`
+	EndTime   json.RawMessage `json:"endTime"`
+	Unit      string          `json:"unit"`
+	Value     json.RawMessage `json:"value"`
+}
+
 // ParseHuaweiJSON consumes either the internal records contract or Huawei's
 // exported activity array incrementally. It never returns input text in
 // errors and drops unsupported sensitive record families.
@@ -319,6 +335,12 @@ func appendHuaweiActivityJSON(result *Result, raw []byte) (bool, error) {
 	if err := json.Unmarshal(raw, &keys); err != nil {
 		return false, &SafeError{Code: "source_schema_unsupported"}
 	}
+	if typeValue, isRecord := keys["type"]; isRecord && isHuaweiNumericValue(typeValue) {
+		if err := appendHuaweiHealthRecord(result, raw); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
 	if _, isRecord := keys["type"]; isRecord {
 		var record sourceRecord
 		if err := json.Unmarshal(raw, &record); err != nil {
@@ -362,6 +384,147 @@ func appendHuaweiActivityJSON(result *Result, raw []byte) (bool, error) {
 		result.Workouts = append(result.Workouts, *workout)
 	}
 	return true, nil
+}
+
+func appendHuaweiHealthRecord(result *Result, raw []byte) error {
+	var record huaweiHealthRecord
+	if err := json.Unmarshal(raw, &record); err != nil || len(record.SamplePoints) == 0 {
+		return nil
+	}
+	for _, point := range record.SamplePoints {
+		sample, warning := normalizeHuaweiHealthSample(record, point)
+		if warning != nil {
+			result.Warnings = append(result.Warnings, *warning)
+		}
+		if sample != nil {
+			result.Samples = append(result.Samples, *sample)
+		}
+	}
+	return nil
+}
+
+func normalizeHuaweiHealthSample(record huaweiHealthRecord, point huaweiHealthSamplePoint) (*Sample, *Warning) {
+	sourceType, unit, sourceUnit, convert, ok := huaweiHealthMetric(point.Key, point.Unit)
+	if !ok {
+		return nil, &Warning{Code: "metric_mapping_unknown"}
+	}
+	value, ok := huaweiNumber(point.Value)
+	if !ok || value < 0 {
+		return nil, &Warning{Code: "metric_mapping_unknown"}
+	}
+	value = convert(value)
+	if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
+		return nil, &Warning{Code: "metric_mapping_unknown"}
+	}
+
+	startedAt, ok := huaweiHealthTime(point.StartTime)
+	if !ok {
+		startedAt, ok = huaweiHealthTime(record.StartTime)
+	}
+	if !ok {
+		return nil, &Warning{Code: "timestamp_invalid"}
+	}
+	endedAt, endOK := huaweiHealthTime(point.EndTime)
+	if !endOK {
+		endedAt, endOK = huaweiHealthTime(record.EndTime)
+	}
+	if !endOK {
+		endedAt = startedAt
+	}
+	if endedAt.Before(startedAt) {
+		return nil, &Warning{Code: "timestamp_invalid"}
+	}
+
+	recordID := record.RecordID
+	if recordID == "" {
+		recordID = "huawei-health-record"
+	}
+	recordHash := hash(strings.Join([]string{recordID, point.Key, startedAt.Format(time.RFC3339Nano), endedAt.Format(time.RFC3339Nano)}, "|"))
+	canonicalValue := strconv.FormatFloat(value, 'f', -1, 64)
+	identity := strings.Join([]string{"v1", SourceFamily, sourceType, recordHash, unit, canonicalValue}, "|")
+	return &Sample{
+		SourceFamily:          SourceFamily,
+		SourceType:            sourceType,
+		SourceRecordHash:      recordHash,
+		StartedAt:             startedAt,
+		EndedAt:               endedAt,
+		Unit:                  unit,
+		SourceUnit:            sourceUnit,
+		UnitConversionVersion: "v1",
+		Value:                 canonicalValue,
+		DedupeKey:             hash(identity),
+		ParserVersion:         ParserVersion,
+	}, nil
+}
+
+func huaweiHealthMetric(key, rawUnit string) (sourceType, unit, sourceUnit string, convert func(float64) float64, ok bool) {
+	normalizedKey := strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(key, "-", "_"), " ", "_"))
+	normalizedUnit := strings.ToLower(strings.TrimSpace(rawUnit))
+	if normalizedUnit == "" || normalizedUnit == "0" {
+		normalizedUnit = "unknown"
+	}
+
+	switch {
+	case strings.Contains(normalizedKey, "resting") && strings.Contains(normalizedKey, "heart"):
+		return "resting_heart_rate", "bpm", normalizedUnitOrDefault(normalizedUnit, "bpm"), same, true
+	case strings.Contains(normalizedKey, "heart") && strings.Contains(normalizedKey, "rate"):
+		return "heart_rate", "bpm", normalizedUnitOrDefault(normalizedUnit, "bpm"), same, true
+	case strings.Contains(normalizedKey, "step"):
+		return "steps", "count", normalizedUnitOrDefault(normalizedUnit, "count"), same, true
+	case strings.Contains(normalizedKey, "distance"):
+		if normalizedUnit == "km" || normalizedUnit == "kilometre" || normalizedUnit == "kilometres" || normalizedUnit == "kilometer" || normalizedUnit == "kilometers" {
+			return "distance", "metres", normalizedUnit, func(value float64) float64 { return value * 1000 }, true
+		}
+		return "distance", "metres", normalizedUnitOrDefault(normalizedUnit, "metres"), same, true
+	case strings.Contains(normalizedKey, "calorie"):
+		if normalizedUnit == "cal" || normalizedUnit == "calorie" || normalizedUnit == "calories" {
+			return "calories", "kilocalories", normalizedUnit, func(value float64) float64 { return value / 1000 }, true
+		}
+		return "calories", "kilocalories", normalizedUnitOrDefault(normalizedUnit, "kilocalories"), same, true
+	case strings.Contains(normalizedKey, "active") && (strings.Contains(normalizedKey, "time") || strings.Contains(normalizedKey, "duration")):
+		if normalizedUnit == "ms" || normalizedUnit == "millisecond" || normalizedUnit == "milliseconds" {
+			return "active_duration", "seconds", normalizedUnit, func(value float64) float64 { return value / 1000 }, true
+		}
+		if normalizedUnit == "min" || normalizedUnit == "minute" || normalizedUnit == "minutes" {
+			return "active_duration", "seconds", normalizedUnit, func(value float64) float64 { return value * 60 }, true
+		}
+		return "active_duration", "seconds", normalizedUnitOrDefault(normalizedUnit, "seconds"), same, true
+	case strings.Contains(normalizedKey, "spo2") || strings.Contains(normalizedKey, "oxygen"):
+		if normalizedUnit == "fraction" {
+			return "spo2", "percent", normalizedUnit, func(value float64) float64 { return value * 100 }, true
+		}
+		return "spo2", "percent", normalizedUnitOrDefault(normalizedUnit, "percent"), same, true
+	case strings.Contains(normalizedKey, "stress"):
+		return "stress", "source_score", normalizedUnitOrDefault(normalizedUnit, "source_score"), same, true
+	default:
+		return "", "", "", nil, false
+	}
+}
+
+func normalizedUnitOrDefault(unit, fallback string) string {
+	if unit == "unknown" {
+		return fallback
+	}
+	return unit
+}
+
+func isHuaweiNumericValue(raw json.RawMessage) bool {
+	_, ok := huaweiNumber(raw)
+	return ok
+}
+
+func huaweiHealthTime(raw json.RawMessage) (time.Time, bool) {
+	value, ok := huaweiNumber(raw)
+	if !ok || value <= 0 {
+		return time.Time{}, false
+	}
+	if value >= 100_000_000_000_000_000 {
+		value /= 1_000_000
+	} else if value >= 100_000_000_000_000 {
+		value /= 1_000
+	}
+	result := huaweiEpoch(value)
+	return result, result.Year() >= 1970 && result.Year() <= 2100
 }
 
 func appendSourceRecord(result *Result, record sourceRecord) error {
