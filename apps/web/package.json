@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test:unit": "tsx --test src/lib/imports/*.test.ts",
+    "test:unit": "tsx --test src/lib/imports/*.test.ts src/lib/dashboard/*.test.ts",
     "test:local:tus": "node scripts/local-tus-probe.mjs",
     "test:e2e": "node e2e/run-tests.mjs",
     "test:e2e:browser": "node e2e/run-browser-tests.mjs"

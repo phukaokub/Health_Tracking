@@ -15,4 +15,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   return <DashboardShell active="/dashboard" eyebrow="Dashboard" title="Your current wellness picture" description="Use the dashboard for a quick view of movement, sleep, and cardio context. Missing data stays visible instead of becoming a misleading zero."><div className="space-y-6"><RangeTabs range={range} />{result.status === "error" ? <SafeErrorState /> : <DashboardView report={result.data} />}</div></DashboardShell>;
 }
 
-function parseRange(value: string | undefined): ReportRange { const parsed = Number(value); return REPORT_RANGES.includes(parsed as ReportRange) ? parsed as ReportRange : 7; }
+function parseRange(value: string | undefined): ReportRange {
+  if (value === "latest") return "latest";
+  const parsed = Number(value);
+  return REPORT_RANGES.includes(parsed as (typeof REPORT_RANGES)[number]) ? parsed as (typeof REPORT_RANGES)[number] : 7;
+}

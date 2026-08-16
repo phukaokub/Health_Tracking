@@ -27,7 +27,7 @@ func TestParseHuaweiJSONIsDeterministicAndExcludesSensitiveRecords(t *testing.T)
 	if string(firstJSON) != string(secondJSON) {
 		t.Fatal("normalization was not deterministic")
 	}
-	if len(first.Samples) != 2 || len(first.Warnings) != 2 {
+	if len(first.Samples) != 2 || len(first.Warnings) != 1 {
 		t.Fatalf("unexpected output: %#v", first)
 	}
 	if first.Samples[0].DedupeKey == "" || first.Samples[0].SourceRecordHash == "" {
@@ -217,6 +217,77 @@ func TestParseHuaweiJSONMapsHuaweiHealthSamplePointExport(t *testing.T) {
 	}
 	if result.Samples[1].SourceType != "steps" || result.Samples[1].Unit != "count" || result.Samples[1].Value != "120" {
 		t.Fatalf("unexpected steps sample: %#v", result.Samples[1])
+	}
+}
+
+func TestParseHuaweiJSONMapsNestedHuaweiHealthDetailValues(t *testing.T) {
+	input := `[{"type":7,"recordId":"health-record","samplePoints":[` +
+		`{"startTime":1767315845000,"value":"{\"bpm\":72}","key":"DYNAMIC_HEART_RATE"},` +
+		`{"startTime":1767315845000,"value":"{\"restBpm\":60}","key":"RESTING_HEART_RATE"},` +
+		`{"startTime":1767315845000,"value":"{\"heartRateVariabilityRMSSD\":24}","key":"HEART_RATE_VARIABILITY"},` +
+		`{"startTime":1767315845000,"value":"{\"stressScore\":40}","key":"STRESS"},` +
+		`{"startTime":1767315845000,"value":"{\"skinTemperature\":36.5}","key":"SKIN_TEMPERATURE"},` +
+		`{"startTime":1767315845000,"value":"{\"avgSaturation\":98}","key":"BLOOD_OXYGEN_SATURATION"}]}]`
+	result, err := ParseHuaweiJSON(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Samples) != 6 {
+		t.Fatalf("expected six nested Huawei samples, got %#v", result)
+	}
+	want := map[string]string{
+		"heart_rate":         "72",
+		"resting_heart_rate": "60",
+		"hrv":                "24",
+		"stress":             "40",
+		"skin_temperature":   "36.5",
+		"spo2":               "98",
+	}
+	for _, sample := range result.Samples {
+		if want[sample.SourceType] != sample.Value {
+			t.Fatalf("unexpected nested Huawei sample: %#v", sample)
+		}
+		delete(want, sample.SourceType)
+	}
+	if len(want) != 0 {
+		t.Fatalf("nested Huawei metrics missing: %#v", want)
+	}
+}
+
+func TestParseHuaweiJSONMapsHuaweiSleepRecordValue(t *testing.T) {
+	input := `[{"type":500005,"recordId":"sleep-record","samplePoints":[{"startTime":1767315845000,"value":"{\"fallAsleepTime\":1767315845000,\"wakeupTime\":1767344645000}","key":"SLEEP_RECORD"}]}]`
+	result, err := ParseHuaweiJSON(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.SleepSessions) != 1 || result.SleepSessions[0].DurationSeconds != 28800 {
+		t.Fatalf("unexpected Huawei sleep record: %#v", result)
+	}
+	encoded, _ := json.Marshal(result)
+	if strings.Contains(string(encoded), "sleep-record") || strings.Contains(string(encoded), "fallAsleepTime") {
+		t.Fatalf("raw Huawei sleep value escaped: %s", encoded)
+	}
+}
+
+func TestParseHuaweiJSONMapsHuaweiSportPerMinuteData(t *testing.T) {
+	input := `[{"recordDay":20260102,"timeZone":"+0700","sportDataUserData":[{"dataId":1,"startTime":1767315845000,"endTime":1767315905000,"sportType":5,"sportBasicInfos":[{"steps":120,"distance":80,"calorie":3,"duration":60000}]}]}]`
+	result, err := ParseHuaweiJSON(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Samples) != 4 || len(result.Activities) != 1 || result.Activities[0].ActivityType != "walking" || result.Activities[0].DurationSeconds != 60 {
+		t.Fatalf("unexpected Huawei sport-per-minute output: %#v", result)
+	}
+	values := map[string]string{}
+	for _, sample := range result.Samples {
+		values[sample.SourceType] = sample.Value
+	}
+	if values["steps"] != "120" || values["distance"] != "80" || values["calories"] != "3" || values["active_duration"] != "60" {
+		t.Fatalf("sport-per-minute metrics were not normalized: %#v", values)
+	}
+	encoded, _ := json.Marshal(result)
+	if strings.Contains(string(encoded), "sportDataUserData") || strings.Contains(string(encoded), "dataId") {
+		t.Fatalf("raw Huawei sport detail escaped: %s", encoded)
 	}
 }
 
