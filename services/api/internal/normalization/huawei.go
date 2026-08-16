@@ -217,7 +217,11 @@ func parseRecordsObject(decoder *json.Decoder) (Result, error) {
 				return Result{}, safeJSONError(err)
 			}
 			if len(raw) > maxHuaweiRecordBytes(raw) {
-				return Result{}, &SafeError{Code: "json_token_too_large"}
+				if isKnownInternalRecordType(raw) {
+					return Result{}, &SafeError{Code: "json_token_too_large"}
+				}
+				result.Warnings = append(result.Warnings, Warning{Code: "source_detail_excluded"})
+				continue
 			}
 			var record sourceRecord
 			if err := json.Unmarshal(raw, &record); err != nil {
@@ -541,6 +545,26 @@ func maxHuaweiRecordBytes(raw json.RawMessage) int {
 		}
 	}
 	return MaxRecordBytes
+}
+
+func isKnownInternalRecordType(raw json.RawMessage) bool {
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &keys); err != nil {
+		return false
+	}
+	var typeName string
+	if err := json.Unmarshal(keys["type"], &typeName); err != nil {
+		return false
+	}
+	if _, ok := scalarMappings[typeName]; ok {
+		return true
+	}
+	switch typeName {
+	case "activity", "sleep_session", "workout_summary", "ecg", "workout_route":
+		return true
+	default:
+		return false
+	}
 }
 
 func huaweiHealthTime(raw json.RawMessage) (time.Time, bool) {
