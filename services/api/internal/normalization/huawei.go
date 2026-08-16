@@ -297,7 +297,9 @@ func parseHuaweiActivityValues(decoder *json.Decoder, requireMatch bool) (Result
 			return Result{}, safeJSONError(err)
 		}
 		if len(raw) > maxHuaweiRecordBytes(raw) {
-			return Result{}, &SafeError{Code: "json_token_too_large"}
+			result.Warnings = append(result.Warnings, Warning{Code: "source_detail_excluded"})
+			foundActivity = true
+			continue
 		}
 		matched, err := appendHuaweiActivityJSON(&result, raw)
 		if err != nil {
