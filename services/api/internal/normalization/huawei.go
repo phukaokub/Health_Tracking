@@ -523,6 +523,13 @@ func maxHuaweiRecordBytes(raw json.RawMessage) int {
 		if typeValue, ok := keys["type"]; ok && isHuaweiNumericValue(typeValue) {
 			return MaxHuaweiHealthRecordBytes
 		}
+		var typeName string
+		if err := json.Unmarshal(keys["type"], &typeName); err == nil {
+			switch typeName {
+			case "activity", "sleep_session", "workout_summary":
+				return MaxHuaweiHealthRecordBytes
+			}
+		}
 		if _, ok := keys["sportType"]; ok {
 			return MaxHuaweiHealthRecordBytes
 		}

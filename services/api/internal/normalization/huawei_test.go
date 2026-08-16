@@ -141,6 +141,17 @@ func TestParseHuaweiJSONAllowsBoundedLargeHuaweiActivityDetail(t *testing.T) {
 	}
 }
 
+func TestParseHuaweiJSONAllowsBoundedLargeInternalActivityDetail(t *testing.T) {
+	input := `{"records":[{"type":"activity","record_id":"large-activity","activity_type":"walking","started_at":"2026-01-02T00:00:00Z","ended_at":"2026-01-02T00:10:00Z","route":"` + strings.Repeat("x", MaxRecordBytes+1) + `"}]}`
+	result, err := ParseHuaweiJSON(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Activities) != 1 || result.Activities[0].DurationSeconds != 600 {
+		t.Fatalf("expected canonical activity summary, got %#v", result)
+	}
+}
+
 func TestParseHuaweiJSONMapsNestedHuaweiActivityExportArray(t *testing.T) {
 	input := `[{"recordDay":20260102,"motionPathData":[{"sportType":5,"startTime":1767315845000,"totalTime":600000}]}]`
 	result, err := ParseHuaweiJSON(strings.NewReader(input))
