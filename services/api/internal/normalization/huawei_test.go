@@ -220,6 +220,18 @@ func TestParseHuaweiJSONMapsHuaweiHealthSamplePointExport(t *testing.T) {
 	}
 }
 
+func TestParseHuaweiJSONAllowsLargeTopLevelHuaweiHealthArray(t *testing.T) {
+	record := `{"type":7,"recordId":"health-record","samplePoints":[{"startTime":1767315845000,"value":"120","key":"DATA_POINT_STEP_COUNT"}]}`
+	input := "[" + strings.TrimSuffix(strings.Repeat(record+",", MaxRecordCount+1), ",") + "]"
+	result, err := ParseHuaweiJSON(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("large top-level Huawei Health array should remain bounded and parse: %v", err)
+	}
+	if len(result.Samples) != MaxRecordCount+1 {
+		t.Fatalf("expected %d samples, got %d", MaxRecordCount+1, len(result.Samples))
+	}
+}
+
 func TestParseHuaweiJSONAllowsBoundedLargeHuaweiHealthRecord(t *testing.T) {
 	input := `[{"type":7,"samplePoints":[],"boundedMetadata":"` + strings.Repeat("x", MaxRecordBytes+1) + `"}]`
 	if _, err := ParseHuaweiJSON(strings.NewReader(input)); err != nil {

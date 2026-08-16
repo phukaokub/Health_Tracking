@@ -34,6 +34,10 @@ const (
 	// records bounded by the Storage part limit while retaining the smaller
 	// internal-record bound above.
 	MaxHuaweiHealthRecordBytes = 20 * 1024 * 1024
+	// Huawei's top-level numeric export can contain tens of thousands of
+	// bounded records. Keep its larger count limit separate from the smaller
+	// generic array limit while remaining bounded by MaxInputBytes.
+	MaxHuaweiHealthRecordCount = 50000
 	MaxRecordCount             = 10000
 	SourceFamily               = "huawei_health_json"
 )
@@ -293,13 +297,17 @@ func parseHuaweiActivityArray(decoder *json.Decoder) (Result, error) {
 func parseHuaweiActivityValues(decoder *json.Decoder, requireMatch bool) (Result, error) {
 	var result Result
 	foundActivity := false
+	maxRecordCount := MaxRecordCount
 	for index := 0; decoder.More(); index++ {
-		if index >= MaxRecordCount {
+		if index >= maxRecordCount {
 			return Result{}, &SafeError{Code: "json_token_too_large"}
 		}
 		var raw json.RawMessage
 		if err := decoder.Decode(&raw); err != nil {
 			return Result{}, safeJSONError(err)
+		}
+		if index == 0 && isHuaweiNumericRecordJSON(raw) {
+			maxRecordCount = MaxHuaweiHealthRecordCount
 		}
 		if len(raw) > maxHuaweiRecordBytes(raw) {
 			result.Warnings = append(result.Warnings, Warning{Code: "source_detail_excluded"})
@@ -396,6 +404,15 @@ func appendHuaweiActivityJSON(result *Result, raw []byte) (bool, error) {
 		result.Workouts = append(result.Workouts, *workout)
 	}
 	return true, nil
+}
+
+func isHuaweiNumericRecordJSON(raw []byte) bool {
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &keys); err != nil {
+		return false
+	}
+	typeValue, ok := keys["type"]
+	return ok && isHuaweiNumericValue(typeValue)
 }
 
 func appendHuaweiHealthRecord(result *Result, raw []byte) error {
