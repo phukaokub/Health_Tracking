@@ -29,8 +29,12 @@ const (
 	// parser. Keep the logical-file cap aligned with the staging benchmark.
 	MaxInputBytes  = 72 * 1024 * 1024
 	MaxRecordBytes = 1 * 1024 * 1024
-	MaxRecordCount = 10000
-	SourceFamily   = "huawei_health_json"
+	// Huawei Health groups many sample points in one record. Keep those
+	// records bounded by the Storage part limit while retaining the smaller
+	// internal-record bound above.
+	MaxHuaweiHealthRecordBytes = 20 * 1024 * 1024
+	MaxRecordCount             = 10000
+	SourceFamily               = "huawei_health_json"
 )
 
 type SafeError struct{ Code string }
@@ -212,7 +216,7 @@ func parseRecordsObject(decoder *json.Decoder) (Result, error) {
 			if err := decoder.Decode(&raw); err != nil {
 				return Result{}, safeJSONError(err)
 			}
-			if len(raw) > MaxRecordBytes {
+			if len(raw) > maxHuaweiRecordBytes(raw) {
 				return Result{}, &SafeError{Code: "json_token_too_large"}
 			}
 			var record sourceRecord
@@ -292,7 +296,7 @@ func parseHuaweiActivityValues(decoder *json.Decoder, requireMatch bool) (Result
 		if err := decoder.Decode(&raw); err != nil {
 			return Result{}, safeJSONError(err)
 		}
-		if len(raw) > MaxRecordBytes {
+		if len(raw) > maxHuaweiRecordBytes(raw) {
 			return Result{}, &SafeError{Code: "json_token_too_large"}
 		}
 		matched, err := appendHuaweiActivityJSON(&result, raw)
@@ -511,6 +515,16 @@ func normalizedUnitOrDefault(unit, fallback string) string {
 func isHuaweiNumericValue(raw json.RawMessage) bool {
 	_, ok := huaweiNumber(raw)
 	return ok
+}
+
+func maxHuaweiRecordBytes(raw json.RawMessage) int {
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &keys); err == nil {
+		if typeValue, ok := keys["type"]; ok && isHuaweiNumericValue(typeValue) {
+			return MaxHuaweiHealthRecordBytes
+		}
+	}
+	return MaxRecordBytes
 }
 
 func huaweiHealthTime(raw json.RawMessage) (time.Time, bool) {

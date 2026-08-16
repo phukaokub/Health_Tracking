@@ -169,6 +169,13 @@ func TestParseHuaweiJSONMapsHuaweiHealthSamplePointExport(t *testing.T) {
 	}
 }
 
+func TestParseHuaweiJSONAllowsBoundedLargeHuaweiHealthRecord(t *testing.T) {
+	input := `[{"type":7,"samplePoints":[],"boundedMetadata":"` + strings.Repeat("x", MaxRecordBytes+1) + `"}]`
+	if _, err := ParseHuaweiJSON(strings.NewReader(input)); err != nil {
+		t.Fatalf("large Huawei Health record should remain within its bounded limit: %v", err)
+	}
+}
+
 func TestRepairMotionMapDecimalKeysIsNarrowAndStrict(t *testing.T) {
 	repaired, err := RepairMotionMapDecimalKeys([]byte(`{"paceMap":{1.5:12,"2.0":20}}`))
 	if err != nil || string(repaired) != `{"paceMap":{"1.5":12,"2.0":20}}` {
