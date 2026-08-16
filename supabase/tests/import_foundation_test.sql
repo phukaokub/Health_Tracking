@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(148);
+SELECT plan(149);
 
 SELECT ok(to_regclass('public.import_runs') is not null, 'import_runs exists');
 SELECT ok(to_regclass('public.import_manifest_pages') is not null, 'import_manifest_pages exists');
@@ -10,6 +10,7 @@ SELECT ok(to_regclass('public.import_errors') is not null, 'import_errors exists
 SELECT ok(to_regclass('public.health_samples') is not null, 'health_samples exists');
 SELECT ok(to_regclass('public.normalization_provenance') is not null, 'normalization_provenance exists');
 SELECT ok(to_regclass('public.legacy_xls_quality_reports') is not null, 'legacy XLS quality table exists');
+SELECT ok(to_regclass('public.health_samples_owner_family_type_time_idx') is not null, 'health sample source precedence index exists');
 SELECT ok(
   (select relrowsecurity from pg_class where oid = 'public.legacy_xls_quality_reports'::regclass),
   'legacy XLS quality table has RLS enabled'
