@@ -80,16 +80,15 @@ export async function getSummaryData(): Promise<Result<SummaryData>> {
     supabase
       .from("import_runs")
       .select("id, state, source_kind, timezone_candidate, total_file_count, created_at, updated_at")
-      .in("state", ["completed", "completed_with_warnings"])
+      .neq("state", "deleted")
       .order("created_at", { ascending: false })
       .limit(10),
     supabase
       .from("import_files")
-      .select("import_id, source_family, inclusion_state")
-      .in("inclusion_state", ["verified", "uploaded"]),
+      .select("import_id, source_family, inclusion_state, parser_version_target"),
     supabase
       .from("import_jobs")
-      .select("import_id, state, warning_codes, normalized_record_count")
+      .select("import_id, state, warning_codes, normalized_record_count, parser_version")
       .eq("job_type", "parse_import")
       .order("updated_at", { ascending: false })
       .limit(10),
@@ -111,6 +110,9 @@ export async function getSummaryData(): Promise<Result<SummaryData>> {
     latestImport = {
       id: latest.id,
       state: latest.state,
+      job_state: latestJob?.state ?? null,
+      parser_version: typeof latestJob?.parser_version === "string" ? latestJob.parser_version : null,
+      parser_version_target: latestFiles.find((file) => typeof file.parser_version_target === "string")?.parser_version_target ?? null,
       source_kind: latest.source_kind,
       timezone_candidate: latest.timezone_candidate,
       total_file_count: latest.total_file_count,
@@ -140,6 +142,77 @@ export async function getSummaryData(): Promise<Result<SummaryData>> {
       report: reportResult.data,
     },
   };
+}
+
+export async function getLatestImportStatus(): Promise<Result<LatestImport | null>> {
+  const supabase = await createClient();
+  const { data: authData } = await supabase.auth.getUser();
+  if (!authData.user) return { status: "unauthorized" };
+
+  const { data: runs, error: runsError } = await supabase
+    .from("import_runs")
+    .select("id, state, source_kind, timezone_candidate, total_file_count, created_at, updated_at")
+    .neq("state", "deleted")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (runsError) return { status: "error" };
+
+  const latest = runs?.[0];
+  if (!latest) return { status: "ok", data: null };
+
+  const [filesResult, jobResult, qualityResult] = await Promise.all([
+    supabase
+      .from("import_files")
+      .select("source_family, parser_version_target")
+      .eq("import_id", latest.id),
+    supabase
+      .from("import_jobs")
+      .select("state, warning_codes, normalized_record_count, parser_version")
+      .eq("import_id", latest.id)
+      .eq("job_type", "parse_import")
+      .maybeSingle(),
+    supabase
+      .from("legacy_xls_quality_reports")
+      .select("inserted_metric_count, conflict_metric_count, excluded_sheet_count, unknown_sheet_count, ambiguous_cell_count")
+      .eq("import_id", latest.id)
+      .maybeSingle(),
+  ]);
+  if (filesResult.error || jobResult.error || qualityResult.error) return { status: "error" };
+
+  const job = jobResult.data;
+  const quality = qualityResult.data;
+  return {
+    status: "ok",
+    data: {
+      id: latest.id,
+      state: latest.state,
+      job_state: job?.state ?? null,
+      parser_version: typeof job?.parser_version === "string" ? job.parser_version : null,
+      parser_version_target: filesResult.data?.find((file) => typeof file.parser_version_target === "string")?.parser_version_target ?? null,
+      source_kind: latest.source_kind,
+      timezone_candidate: latest.timezone_candidate,
+      total_file_count: numberValue(latest.total_file_count),
+      created_at: latest.created_at,
+      updated_at: latest.updated_at,
+      source_families: [...new Set((filesResult.data ?? []).map((file) => file.source_family).filter(Boolean))],
+      warnings: safeWarningCodes(job?.warning_codes),
+      normalized_record_count: numberValue(job?.normalized_record_count),
+      legacy_quality: quality
+        ? {
+            inserted_metric_count: numberValue(quality.inserted_metric_count),
+            conflict_metric_count: numberValue(quality.conflict_metric_count),
+            excluded_sheet_count: numberValue(quality.excluded_sheet_count),
+            unknown_sheet_count: numberValue(quality.unknown_sheet_count),
+            ambiguous_cell_count: numberValue(quality.ambiguous_cell_count),
+          }
+        : null,
+    },
+  };
+}
+
+export function isImportPending(importData: Pick<LatestImport, "state" | "job_state"> | null): boolean {
+  return Boolean(importData && ["uploading", "uploaded", "queued", "processing"].includes(importData.state)
+    || importData && ["leased", "queued", "processing"].includes(importData.job_state ?? ""));
 }
 
 export async function getGoals(): Promise<Result<Goal[]>> {

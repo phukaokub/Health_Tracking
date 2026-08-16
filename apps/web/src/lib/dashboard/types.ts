@@ -111,6 +111,9 @@ export type ReportData = {
 export type LatestImport = {
   id: string;
   state: string;
+  job_state: string | null;
+  parser_version: string | null;
+  parser_version_target: string | null;
   source_kind: string;
   timezone_candidate: string | null;
   total_file_count: number;
