@@ -274,6 +274,17 @@ func TestParseHuaweiJSONExcludesOversizedUnknownInternalRecord(t *testing.T) {
 	}
 }
 
+func TestParseHuaweiJSONExcludesOversizedKnownRecordDetail(t *testing.T) {
+	input := `{"records":[{"type":"heart_rate","record_id":"detail","value":[` + strings.Repeat("1,", 600000) + `1]}]}`
+	result, err := ParseHuaweiJSON(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Warnings) != 1 || result.Warnings[0].Code != "source_detail_excluded" {
+		t.Fatalf("expected oversized known-detail warning, got %#v", result.Warnings)
+	}
+}
+
 type oneByteReader struct{ data []byte }
 
 func (reader *oneByteReader) Read(target []byte) (int, error) {
