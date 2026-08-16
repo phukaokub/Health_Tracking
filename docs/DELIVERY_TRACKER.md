@@ -8,9 +8,9 @@ This is the living status document. Update it at each meaningful handoff, accept
 
 - Release target: private non-clinical V1.
 - Current gate: Step 6 implementation is complete on the local branch with local schema, RLS, web, and browser evidence green; user acceptance and pull-request review remain pending. Step 5 is squash-merged in PR #63; Step 3's hosted synthetic two-user, quota/outage, and cleanup suite remains explicitly deferred and is out of scope.
-- Current branch: `codex/step-7-explainable-scoring`.
-- Active milestone: Step 7 adds a deterministic, coverage-aware score, descriptive 28-day goal trend, safe rule-based suggestions, and owner-scoped insert-only score provenance on top of the merged Step 6 report contract. The focused local matrix passed (web typecheck/lint/build, clean Supabase reset, schema lint, 172 pgTAP assertions, and one synthetic-account browser flow). Production resources, provider changes, automatic scheduling, ECG/RRI, GPS/routes, medical inference, and hosted verification remain excluded.
-- Active Step 6 plan: [`plans/0006-summary-goals-dashboard-reports.md`](plans/0006-summary-goals-dashboard-reports.md).
+- Current branch: `codex/step-6-summary-dashboard-reports`.
+- Active milestone: Step 6 follow-up fixes are under review on this branch: session-aware landing/navigation, import/profile handoff, and the bounded Huawei activity-array worker adapter. Step 7 remains implemented on `main` and is included through the merge base; production resources, provider changes, automatic scheduling, ECG/RRI, GPS/routes, medical inference, and hosted verification remain excluded.
+- Active Step 6 plan: [`plans/0006-summary-dashboard-reports.md`](plans/0006-summary-dashboard-reports.md).
 - Active Step 7 plan: [`plans/0007-explainable-scores-trends-suggestions.md`](plans/0007-explainable-scores-trends-suggestions.md).
 - Active Step 5 plan: [`plans/0005-legacy-xls-backfill.md`](plans/0005-legacy-xls-backfill.md).
 - Active Step 4 plan: [`plans/0004-huawei-json-normalization.md`](plans/0004-huawei-json-normalization.md).
@@ -139,6 +139,7 @@ Accepted architectural decisions receive an ADR in [`decisions/`](decisions/).
 | 2026-08-15 | Step 6 local schema/RLS slice | Additive goals migration, owner RLS/grants, bounded report RPC, clean local reset, schema lint, and 164 pgTAP assertions | Green; cross-owner goal/report isolation and 90-day report bound pass; hosted/provider mutation remains excluded |
 | 2026-08-15 | Step 6 web/browser slice | Summary, goals, dashboard, reports, timezone/goal actions, web typecheck/lint/build, and synthetic-account Chromium flow | Green; goal save and empty-state navigation passed; privacy-safe screenshot at `apps/web/test-results/browser/step6-summary-safe.png`; user acceptance/PR review pending |
 | 2026-08-15 | Step 7 score/trend/snapshot slice | Deterministic `score-v1` domain logic, coverage-aware reweighting, descriptive 28-day goal trend, safe suggestions, reports explanation UI, owner-scoped insert-only snapshots, focused fixtures, local schema/RLS checks, and synthetic-account browser evidence | Green; 3 score tests, web typecheck/lint/build, clean local reset, schema lint, 172 pgTAP assertions, and `apps/web/test-results/browser/step7-score-safe.png`; working thresholds/labels remain pending issue #42 approval |
+| 2026-08-16 | Step 6 staging follow-up | Session-aware landing/navigation, import/profile handoff, Huawei activity-array normalization with raw route/detail exclusion, and reviewed staging replay/deployment work | Local Go/web checks are green; final merged staging replay and hosted authenticated UI verification remain |
 
 Do not record credential values, email addresses, raw health content, or private incident details in this log.
 

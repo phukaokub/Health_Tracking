@@ -111,6 +111,36 @@ func TestParseHuaweiJSONMapsWorkoutSummaryWithoutRoute(t *testing.T) {
 	}
 }
 
+func TestParseHuaweiJSONMapsHuaweiActivityExportArrayWithoutRouteData(t *testing.T) {
+	input := `[{"sportType":4,"startTime":1767315845000,"totalTime":1800000,"totalDistance":5000,"totalCalories":3000,"timeZone":"+0700","attribute":"HW_EXT_TRACK_DETAIL@is{\"route\":[{\"lat\":0,\"lon\":0}]}&&HW_EXT_TRACK_SIMPLIFY@is{\"totalDistance\":5000,\"totalCalories\":3000}"}]`
+	result, err := ParseHuaweiJSON(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Workouts) != 1 {
+		t.Fatalf("expected one Huawei activity, got %#v", result)
+	}
+	workout := result.Workouts[0]
+	if workout.WorkoutType != "running" || workout.DurationSeconds != 1800 || workout.DistanceMetres != "5000" || workout.EnergyKilocalories != "3" {
+		t.Fatalf("unexpected Huawei activity summary: %#v", workout)
+	}
+	encoded, _ := json.Marshal(result)
+	if strings.Contains(string(encoded), "route") || strings.Contains(string(encoded), "lat") || strings.Contains(string(encoded), "attribute") {
+		t.Fatalf("raw Huawei detail escaped: %s", encoded)
+	}
+}
+
+func TestParseHuaweiJSONMapsNestedHuaweiActivityExportArray(t *testing.T) {
+	input := `[{"recordDay":20260102,"motionPathData":[{"sportType":5,"startTime":1767315845000,"totalTime":600000}]}]`
+	result, err := ParseHuaweiJSON(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Workouts) != 1 || result.Workouts[0].WorkoutType != "walking" {
+		t.Fatalf("unexpected nested Huawei activity: %#v", result)
+	}
+}
+
 func TestRepairMotionMapDecimalKeysIsNarrowAndStrict(t *testing.T) {
 	repaired, err := RepairMotionMapDecimalKeys([]byte(`{"paceMap":{1.5:12,"2.0":20}}`))
 	if err != nil || string(repaired) != `{"paceMap":{"1.5":12,"2.0":20}}` {

@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { Activity, BarChart3, Clock3, Goal, LayoutDashboard } from "lucide-react";
+import { Activity, BarChart3, Clock3, Goal, LayoutDashboard, Upload, UserRound } from "lucide-react";
 
 const navigation = [
   { href: "/summary", label: "Summary", icon: Clock3 },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/goals", label: "Goals", icon: Goal },
+  { href: "/import", label: "Import", icon: Upload },
+  { href: "/account", label: "Profile", icon: UserRound },
 ];
 
 export function DashboardShell({
@@ -25,7 +27,7 @@ export function DashboardShell({
     <main className="min-h-screen bg-slate-950 px-4 py-5 text-white sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <header className="flex flex-col gap-5 border-b border-white/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
-          <Link href="/summary" className="flex items-center gap-3 text-sm font-semibold tracking-tight">
+          <Link href="/dashboard" className="flex items-center gap-3 text-sm font-semibold tracking-tight">
             <span className="grid size-9 place-items-center rounded-xl bg-cyan-300 text-slate-950"><Activity className="size-5" aria-hidden="true" /></span>
             Health Tracking
           </Link>

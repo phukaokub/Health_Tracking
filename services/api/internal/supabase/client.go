@@ -14,6 +14,7 @@ import (
 
 	"github.com/phukaokub/Health_Tracking/services/api/internal/imports"
 	"github.com/phukaokub/Health_Tracking/services/api/internal/normalization"
+	"github.com/phukaokub/Health_Tracking/services/api/internal/summary"
 )
 
 const importBucket = "health-imports"
@@ -153,6 +154,17 @@ func (client *Client) CleanupImports(ctx context.Context, accessToken string) (i
 		result.DeletedCount++
 	}
 	return result, nil
+}
+
+func (client *Client) GetSummary(ctx context.Context, accessToken string, windowDays int) (summary.Snapshot, error) {
+	if !summary.ValidWindow(windowDays) {
+		return summary.Snapshot{}, summary.ErrInvalidWindow
+	}
+	var snapshot summary.Snapshot
+	if err := client.requestJSON(ctx, accessToken, http.MethodPost, "/rest/v1/rpc/summary_api_snapshot", map[string]int{"p_window_days": windowDays}, &snapshot); err != nil {
+		return summary.Snapshot{}, err
+	}
+	return snapshot, nil
 }
 
 // AuthenticateWorker obtains a short-lived Auth token for the dedicated

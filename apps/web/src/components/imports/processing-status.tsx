@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 import { getImport, ImportAPIError, type ImportSnapshot } from "@/lib/imports/import-api";
 import {
@@ -83,7 +84,7 @@ export function ProcessingStatus({ snapshot, onSnapshot }: ProcessingStatusProps
         </p>
       ) : null}
       {snapshot.state === "completed" || snapshot.state === "completed_with_warnings" ? (
-        <p className="mt-2 text-xs text-slate-300">{recordCount} normalized records are ready for your private reports.</p>
+        <p className="mt-2 text-xs text-slate-300">{recordCount > 0 ? `${recordCount} normalized records are ready for your private reports.` : "No normalized records were created yet; review the warnings below or try another export."}</p>
       ) : null}
       {snapshot.normalization?.legacy_backfill ? (
         <div className="mt-3 rounded-xl border border-cyan-100/15 bg-slate-950/30 p-3 text-xs text-slate-200">
@@ -110,6 +111,10 @@ export function ProcessingStatus({ snapshot, onSnapshot }: ProcessingStatusProps
           {warningCodes.map((code) => <li key={code}>{warningLabel(code)}</li>)}
         </ul>
       ) : null}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link href="/dashboard" className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-200">View dashboard</Link>
+        <Link href="/account" className="rounded-full border border-white/20 px-4 py-2 text-xs font-medium text-white hover:bg-white/10">View profile</Link>
+      </div>
       <p className="mt-3 text-xs text-slate-400">Only progress counts and safe warning summaries are shown; source names, paths, and health values are never displayed.</p>
     </section>
   );
