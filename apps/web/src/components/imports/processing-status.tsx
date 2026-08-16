@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-import { getImport, ImportAPIError, type ImportSnapshot } from "@/lib/imports/import-api";
+import { CURRENT_PARSER_VERSION, getImport, ImportAPIError, requeueImport, type ImportSnapshot } from "@/lib/imports/import-api";
 import {
   isProcessingState,
   processingProgress,
@@ -21,9 +21,28 @@ type ProcessingStatusProps = {
 
 export function ProcessingStatus({ snapshot, onSnapshot }: ProcessingStatusProps) {
   const [pollError, setPollError] = useState<string | null>(null);
+  const [requeueError, setRequeueError] = useState<string | null>(null);
+  const [isRequeueing, setIsRequeueing] = useState(false);
   const warningCodes = processingWarningCodes(snapshot);
   const progress = processingProgress(snapshot);
   const recordCount = processingRecordCount(snapshot);
+  const canRequeue = (snapshot.state === "completed" || snapshot.state === "completed_with_warnings" || snapshot.state === "failed")
+    && Boolean(snapshot.job?.parser_version)
+    && snapshot.job?.parser_version !== CURRENT_PARSER_VERSION;
+
+  async function handleRequeue() {
+    setIsRequeueing(true);
+    setRequeueError(null);
+    try {
+      onSnapshot(await requeueImport(snapshot.id));
+    } catch (error) {
+      setRequeueError(error instanceof ImportAPIError && error.code === "raw_source_unavailable"
+        ? "The private source parts have expired; upload the export again to reprocess it."
+        : "Reprocessing could not be queued; try again shortly.");
+    } finally {
+      setIsRequeueing(false);
+    }
+  }
 
   useEffect(() => {
     if (!isProcessingState(snapshot.state)) return;
@@ -106,6 +125,7 @@ export function ProcessingStatus({ snapshot, onSnapshot }: ProcessingStatusProps
         </div>
       ) : null}
       {pollError ? <p className="mt-3 text-xs text-amber-100">{pollError}</p> : null}
+      {requeueError ? <p className="mt-3 text-xs text-amber-100">{requeueError}</p> : null}
       {warningCodes.length ? (
         <ul className="mt-3 space-y-1 text-xs text-amber-100">
           {warningCodes.map((code) => <li key={code}>{warningLabel(code)}</li>)}
@@ -114,6 +134,7 @@ export function ProcessingStatus({ snapshot, onSnapshot }: ProcessingStatusProps
       <div className="mt-4 flex flex-wrap gap-2">
         <Link href="/dashboard" className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-200">View dashboard</Link>
         <Link href="/account" className="rounded-full border border-white/20 px-4 py-2 text-xs font-medium text-white hover:bg-white/10">View profile</Link>
+        {canRequeue ? <button disabled={isRequeueing} type="button" onClick={handleRequeue} className="rounded-full border border-cyan-200/40 px-4 py-2 text-xs font-medium text-cyan-50 disabled:cursor-not-allowed disabled:opacity-50">{isRequeueing ? "Requeueing…" : "Reprocess with latest parser"}</button> : null}
       </div>
       <p className="mt-3 text-xs text-slate-400">Only progress counts and safe warning summaries are shown; source names, paths, and health values are never displayed.</p>
     </section>

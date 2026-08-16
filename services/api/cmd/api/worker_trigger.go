@@ -85,6 +85,9 @@ func (service workerTriggerService) ProcessOneImport(ctx context.Context) (worke
 		batchSequence = files[0].BatchSequenceStart
 	}
 	for _, file := range files {
+		if file.BatchSequenceStart > batchSequence {
+			batchSequence = file.BatchSequenceStart
+		}
 		if err := service.renew(ctx, identity, *lease); err != nil {
 			return worker.Progress{}, err
 		}
@@ -137,6 +140,7 @@ func (service workerTriggerService) ProcessOneImport(ctx context.Context) (worke
 			}
 			return service.fail(ctx, identity, *lease, code, retryable)
 		}
+		normalization.AssignCanonicalDays(&result, timezone)
 		warnings := make([]string, 0, len(result.Warnings))
 		seenWarnings := make(map[string]struct{}, len(result.Warnings))
 		for _, warning := range result.Warnings {

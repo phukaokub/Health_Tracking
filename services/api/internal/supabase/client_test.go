@@ -150,6 +150,14 @@ func TestWorkerRPCUsesExtendedHTTPTimeout(t *testing.T) {
 		if r.URL.Path != "/rest/v1/rpc/worker_persist_normalized_batch" {
 			t.Fatalf("unexpected worker RPC path: %s", r.URL.Path)
 		}
+		var payload map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("worker payload was not JSON: %v", err)
+		}
+		warningCodes, ok := payload["p_warning_codes"].([]any)
+		if !ok || warningCodes == nil {
+			t.Fatalf("worker warning payload must be a JSON array: %#v", payload["p_warning_codes"])
+		}
 		time.Sleep(20 * time.Millisecond)
 		w.WriteHeader(http.StatusNoContent)
 	}))

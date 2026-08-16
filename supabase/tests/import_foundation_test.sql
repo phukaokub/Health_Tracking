@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(149);
+SELECT plan(151);
 
 SELECT ok(to_regclass('public.import_runs') is not null, 'import_runs exists');
 SELECT ok(to_regclass('public.import_manifest_pages') is not null, 'import_manifest_pages exists');
@@ -66,6 +66,14 @@ SELECT ok(
 SELECT ok(
   exists (select 1 from pg_constraint where conname = 'health_samples_unit_check'),
   'health sample canonical units are constrained'
+);
+SELECT ok(
+  to_regprocedure('public.requeue_import_for_parser(uuid,text)') is not null,
+  'parser-versioned import requeue RPC exists'
+);
+SELECT ok(
+  has_function_privilege('authenticated', 'public.requeue_import_for_parser(uuid,text)', 'EXECUTE'),
+  'owners can request parser-versioned reprocessing'
 );
 
 SELECT is(
@@ -1094,11 +1102,15 @@ SELECT ok(
 );
 SELECT ok(
   (SELECT count(*) FROM public.parser_file_checkpoints WHERE job_id = '50000000-0000-4000-8000-000000000031') = 1
-  and
-  (SELECT count(*) FROM public.health_samples WHERE dedupe_key = repeat('e', 64)) = 1
-  and
-  (SELECT count(*) FROM public.activities WHERE dedupe_key = repeat('ab', 32)) = 1,
-  'canonical persistence and its checkpoint commit together'
+   and
+   (SELECT count(*) FROM public.health_samples WHERE dedupe_key = repeat('e', 64)) = 1
+   and
+   (SELECT count(*) FROM public.activities WHERE dedupe_key = repeat('ab', 32)) = 1
+   and
+   (SELECT canonical_day FROM public.health_samples WHERE dedupe_key = repeat('e', 64)) = DATE '2026-01-02'
+   and
+   (SELECT timezone_resolution FROM public.normalization_provenance WHERE source_record_hash = repeat('f', 64)) = 'import_timezone',
+   'canonical persistence and its checkpoint commit together'
 );
 SELECT throws_ok(
   $sql$

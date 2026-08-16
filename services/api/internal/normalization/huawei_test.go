@@ -275,7 +275,7 @@ func TestParseHuaweiJSONMapsHuaweiSportPerMinuteData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Samples) != 4 || len(result.Activities) != 1 || result.Activities[0].ActivityType != "walking" || result.Activities[0].DurationSeconds != 60 {
+	if len(result.Samples) != 4 || len(result.Activities) != 1 || len(result.Workouts) != 1 || result.Activities[0].ActivityType != "walking" || result.Workouts[0].WorkoutType != "walking" || result.Activities[0].DurationSeconds != 60 || result.Workouts[0].DurationSeconds != 60 {
 		t.Fatalf("unexpected Huawei sport-per-minute output: %#v", result)
 	}
 	values := map[string]string{}
@@ -288,6 +288,17 @@ func TestParseHuaweiJSONMapsHuaweiSportPerMinuteData(t *testing.T) {
 	encoded, _ := json.Marshal(result)
 	if strings.Contains(string(encoded), "sportDataUserData") || strings.Contains(string(encoded), "dataId") {
 		t.Fatalf("raw Huawei sport detail escaped: %s", encoded)
+	}
+}
+
+func TestAssignCanonicalDaysUsesImportTimezone(t *testing.T) {
+	result, err := ParseHuaweiJSON(strings.NewReader(`{"records":[{"type":"heart_rate","record_id":"canonical-day","started_at":"2026-01-01T23:30:00Z","unit":"bpm","value":72}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	AssignCanonicalDays(&result, "Asia/Bangkok")
+	if result.Samples[0].CanonicalDay != "2026-01-02" || result.Samples[0].TimezoneResolution != "import_timezone" {
+		t.Fatalf("canonical day was not assigned in import timezone: %#v", result.Samples[0])
 	}
 }
 

@@ -38,6 +38,10 @@ func (service *fakeImportService) CompleteImport(_ context.Context, token, _ str
 	service.method, service.accessToken = "complete", token
 	return importdomain.Snapshot{ID: validImportID, State: importdomain.ImportStateQueued}, service.err
 }
+func (service *fakeImportService) RequeueImport(_ context.Context, token, _ string) (importdomain.Snapshot, error) {
+	service.method, service.accessToken = "requeue", token
+	return importdomain.Snapshot{ID: validImportID, State: importdomain.ImportStateQueued}, service.err
+}
 func (service *fakeImportService) DeleteImport(_ context.Context, token, _ string) (importdomain.Snapshot, error) {
 	service.method, service.accessToken = "delete", token
 	return importdomain.Snapshot{ID: validImportID, State: importdomain.ImportStateDeleted}, service.err
@@ -115,6 +119,7 @@ func TestImportHandlerRoutesStatusCompletionAndDeletion(t *testing.T) {
 	}{
 		{http.MethodGet, importsBasePath + "/" + validImportID, "get"},
 		{http.MethodPost, importsBasePath + "/" + validImportID + "/complete", "complete"},
+		{http.MethodPost, importsBasePath + "/" + validImportID + "/requeue", "requeue"},
 		{http.MethodDelete, importsBasePath + "/" + validImportID, "delete"},
 		{http.MethodPost, importsBasePath + "/cleanup", "cleanup"},
 	} {

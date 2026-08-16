@@ -20,6 +20,7 @@ type ImportService interface {
 	AppendManifestPage(context.Context, string, string, importdomain.ManifestPageRequest) (importdomain.Snapshot, error)
 	GetImport(context.Context, string, string) (importdomain.Snapshot, error)
 	CompleteImport(context.Context, string, string) (importdomain.Snapshot, error)
+	RequeueImport(context.Context, string, string) (importdomain.Snapshot, error)
 	DeleteImport(context.Context, string, string) (importdomain.Snapshot, error)
 	CleanupImports(context.Context, string) (importdomain.CleanupResult, error)
 }
@@ -88,6 +89,15 @@ func (handler *ImportHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		handler.complete(w, r, accessToken, importID)
+		return
+	}
+	if len(segments) == 2 && segments[1] == "requeue" {
+		if r.Method != http.MethodPost {
+			w.Header().Set("Allow", http.MethodPost)
+			writeImportError(w, http.StatusMethodNotAllowed, "method_not_allowed")
+			return
+		}
+		handler.requeue(w, r, accessToken, importID)
 		return
 	}
 	if len(segments) == 2 && segments[1] == "manifest-pages" {
@@ -179,6 +189,15 @@ func (handler *ImportHandler) complete(w http.ResponseWriter, r *http.Request, a
 	writeImportJSON(w, http.StatusOK, snapshot)
 }
 
+func (handler *ImportHandler) requeue(w http.ResponseWriter, r *http.Request, accessToken, importID string) {
+	snapshot, err := handler.service.RequeueImport(r.Context(), accessToken, importID)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeImportJSON(w, http.StatusOK, snapshot)
+}
+
 func (handler *ImportHandler) delete(w http.ResponseWriter, r *http.Request, accessToken, importID string) {
 	snapshot, err := handler.service.DeleteImport(r.Context(), accessToken, importID)
 	if err != nil {
@@ -212,6 +231,8 @@ func writeServiceError(w http.ResponseWriter, err error) {
 	var apiError *supabase.APIError
 	if errors.As(err, &apiError) {
 		switch {
+		case apiError.Message == "raw_source_unavailable":
+			writeImportError(w, http.StatusConflict, "raw_source_unavailable")
 		case apiError.Status == http.StatusUnauthorized || apiError.Status == http.StatusForbidden:
 			writeImportError(w, http.StatusForbidden, "import_forbidden")
 		case apiError.Status == http.StatusNotFound || apiError.Code == "P0002":

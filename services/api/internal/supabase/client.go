@@ -27,8 +27,9 @@ type Client struct {
 }
 
 type APIError struct {
-	Status int
-	Code   string
+	Status  int
+	Code    string
+	Message string
 }
 
 type WorkerIdentity struct {
@@ -115,6 +116,12 @@ func (client *Client) AppendManifestPage(ctx context.Context, accessToken, impor
 
 func (client *Client) CompleteImport(ctx context.Context, accessToken, importID string) (imports.Snapshot, error) {
 	return client.rpc(ctx, accessToken, "complete_import", map[string]string{"p_import_id": importID})
+}
+
+func (client *Client) RequeueImport(ctx context.Context, accessToken, importID string) (imports.Snapshot, error) {
+	return client.rpc(ctx, accessToken, "requeue_import_for_parser", map[string]any{
+		"p_import_id": importID, "p_parser_version": imports.CurrentParserVersion,
+	})
 }
 
 func (client *Client) DeleteImport(ctx context.Context, accessToken, importID string) (imports.Snapshot, error) {
@@ -264,7 +271,7 @@ func (client *Client) ReadWorkerPart(ctx context.Context, identity WorkerIdentit
 func (client *Client) PersistWorkerBatch(ctx context.Context, identity WorkerIdentity, lease WorkerLease, fileID string, batchSequence int, records []map[string]any, warningCodes []string) error {
 	return client.requestWorkerJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_persist_normalized_batch", map[string]any{
 		"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration, "p_import_file_id": fileID,
-		"p_batch_sequence": batchSequence, "p_records": records, "p_warning_codes": warningCodes,
+		"p_batch_sequence": batchSequence, "p_records": records, "p_warning_codes": warningCodesPayload(warningCodes),
 	}, nil)
 }
 
@@ -281,7 +288,7 @@ func (client *Client) CompleteWorkerFile(ctx context.Context, identity WorkerIde
 	return client.requestWorkerJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_complete_import_file", map[string]any{
 		"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration,
 		"p_import_file_id": fileID, "p_normalized_record_count": normalizedRecordCount,
-		"p_warning_codes": warningCodes,
+		"p_warning_codes": warningCodesPayload(warningCodes),
 	}, nil)
 }
 
@@ -296,8 +303,15 @@ func (client *Client) RetryWorkerImport(ctx context.Context, identity WorkerIden
 
 func (client *Client) FinishWorkerImport(ctx context.Context, identity WorkerIdentity, lease WorkerLease, terminalState string, warningCodes []string) (bool, error) {
 	var finished bool
-	err := client.requestWorkerJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_finish_import_job", map[string]any{"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration, "p_terminal_state": terminalState, "p_warning_codes": warningCodes}, &finished)
+	err := client.requestWorkerJSON(ctx, identity.accessToken, http.MethodPost, "/rest/v1/rpc/worker_finish_import_job", map[string]any{"p_job_id": lease.JobID, "p_lease_generation": lease.LeaseGeneration, "p_terminal_state": terminalState, "p_warning_codes": warningCodesPayload(warningCodes)}, &finished)
 	return finished, err
+}
+
+func warningCodesPayload(codes []string) []string {
+	if len(codes) == 0 {
+		return []string{}
+	}
+	return append([]string(nil), codes...)
 }
 
 func (client *Client) ListWorkerRawCleanup(ctx context.Context, identity WorkerIdentity, limit int) ([]WorkerCleanupCandidate, error) {
@@ -394,14 +408,15 @@ func (client *Client) requestJSONWithHTTPClient(httpClient *http.Client, ctx con
 	defer res.Body.Close()
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		var payload struct {
-			Code string `json:"code"`
+			Code    string `json:"code"`
+			Message string `json:"message"`
 		}
 		limited := io.LimitReader(res.Body, 64*1024)
 		_ = json.NewDecoder(limited).Decode(&payload)
 		if payload.Code == "" {
 			payload.Code = "upstream_error"
 		}
-		return &APIError{Status: res.StatusCode, Code: payload.Code}
+		return &APIError{Status: res.StatusCode, Code: payload.Code, Message: payload.Message}
 	}
 	if response == nil || res.StatusCode == http.StatusNoContent {
 		_, _ = io.Copy(io.Discard, res.Body)
