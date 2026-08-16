@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestNewClientRequiresPublishableKey(t *testing.T) {
@@ -141,6 +142,31 @@ func TestWorkerStorageReadUsesShortLivedWorkerToken(t *testing.T) {
 	defer body.Close()
 	if bytes, _ := io.ReadAll(body); string(bytes) != "{}" {
 		t.Fatal("unexpected private body")
+	}
+}
+
+func TestWorkerRPCUsesExtendedHTTPTimeout(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/rest/v1/rpc/worker_persist_normalized_batch" {
+			t.Fatalf("unexpected worker RPC path: %s", r.URL.Path)
+		}
+		time.Sleep(20 * time.Millisecond)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "publishable-key", &http.Client{Timeout: time.Millisecond})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = client.PersistWorkerBatch(
+		context.Background(),
+		WorkerIdentity{ImportWorker: true, Subject: "synthetic", accessToken: "worker-token"},
+		WorkerLease{JobID: "job", LeaseGeneration: "generation"},
+		"file", 0, []map[string]any{{"kind": "sample"}}, nil,
+	)
+	if err != nil {
+		t.Fatalf("worker RPC should use the extended client timeout: %v", err)
 	}
 }
 
