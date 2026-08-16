@@ -155,6 +155,7 @@ func ParseHuaweiJSON(reader io.Reader) (Result, error) {
 func parseRecordsObject(decoder *json.Decoder) (Result, error) {
 	var result Result
 	foundRecords := false
+	foundActivity := false
 	for decoder.More() {
 		keyToken, err := decoder.Token()
 		if err != nil {
@@ -165,6 +166,18 @@ func parseRecordsObject(decoder *json.Decoder) (Result, error) {
 			return Result{}, &SafeError{Code: "source_schema_unsupported"}
 		}
 		if key != "records" {
+			if isHuaweiActivityArrayKey(key) {
+				if token, err := decoder.Token(); err != nil || token != json.Delim('[') {
+					return Result{}, &SafeError{Code: "source_schema_unsupported"}
+				}
+				wrapped, err := parseHuaweiActivityValues(decoder, false)
+				if err != nil {
+					return Result{}, err
+				}
+				mergeNormalizationResult(&result, wrapped)
+				foundActivity = true
+				continue
+			}
 			var discard json.RawMessage
 			if err := decoder.Decode(&discard); err != nil {
 				return Result{}, safeJSONError(err)
@@ -239,7 +252,7 @@ func parseRecordsObject(decoder *json.Decoder) (Result, error) {
 			return Result{}, safeJSONError(err)
 		}
 	}
-	if token, err := decoder.Token(); err != nil || token != json.Delim('}') || !foundRecords {
+	if token, err := decoder.Token(); err != nil || token != json.Delim('}') || (!foundRecords && !foundActivity) {
 		return Result{}, &SafeError{Code: "source_schema_unsupported"}
 	}
 	if decoder.More() {
@@ -249,6 +262,10 @@ func parseRecordsObject(decoder *json.Decoder) (Result, error) {
 }
 
 func parseHuaweiActivityArray(decoder *json.Decoder) (Result, error) {
+	return parseHuaweiActivityValues(decoder, true)
+}
+
+func parseHuaweiActivityValues(decoder *json.Decoder, requireMatch bool) (Result, error) {
 	var result Result
 	foundActivity := false
 	for index := 0; decoder.More(); index++ {
@@ -271,10 +288,30 @@ func parseHuaweiActivityArray(decoder *json.Decoder) (Result, error) {
 	if token, err := decoder.Token(); err != nil || token != json.Delim(']') {
 		return Result{}, safeJSONError(err)
 	}
-	if !foundActivity {
+	if requireMatch && !foundActivity {
 		return Result{}, &SafeError{Code: "source_schema_unsupported"}
 	}
 	return result, nil
+}
+
+func isHuaweiActivityArrayKey(key string) bool {
+	switch key {
+	case "motionPathData", "activities", "activityData", "data":
+		return true
+	default:
+		return false
+	}
+}
+
+func mergeNormalizationResult(target *Result, source Result) {
+	target.Samples = append(target.Samples, source.Samples...)
+	target.SleepSessions = append(target.SleepSessions, source.SleepSessions...)
+	target.Activities = append(target.Activities, source.Activities...)
+	target.Workouts = append(target.Workouts, source.Workouts...)
+	target.Warnings = append(target.Warnings, source.Warnings...)
+	if target.LegacyXLSQuality == nil {
+		target.LegacyXLSQuality = source.LegacyXLSQuality
+	}
 }
 
 func appendHuaweiActivityJSON(result *Result, raw []byte) (bool, error) {
