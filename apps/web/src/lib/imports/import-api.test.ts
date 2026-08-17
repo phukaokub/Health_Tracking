@@ -2,7 +2,23 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { uuidFromSHA256 } from "./identifiers";
-import { ImportAPIError, paginateManifestFiles, type ManifestFile } from "./import-api";
+import { buildImportRequestInit, ImportAPIError, paginateManifestFiles, type ManifestFile } from "./import-api";
+
+test("import API requests always carry the current Supabase bearer token", () => {
+  const request = buildImportRequestInit("synthetic-access-token", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer stale-token",
+      "X-Request-ID": "synthetic-request",
+    },
+  });
+  const headers = new Headers(request.headers);
+
+  assert.equal(headers.get("authorization"), "Bearer synthetic-access-token");
+  assert.equal(headers.get("content-type"), "application/json");
+  assert.equal(headers.get("x-request-id"), "synthetic-request");
+  assert.equal(request.cache, "no-store");
+});
 
 test("manifest-derived idempotency UUID changes when reviewed content changes", () => {
   const first = uuidFromSHA256("a".repeat(64));
