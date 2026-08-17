@@ -183,18 +183,20 @@ async function accessToken(): Promise<string> {
 async function apiFetch<T>(path: string, init: RequestInit): Promise<T> {
   const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
   if (!baseURL) throw new ImportAPIError("api_not_configured", 503);
-  const response = await fetch(new URL(path, ensureTrailingSlash(baseURL)), {
-    ...init,
-    cache: "no-store",
-    headers: {
-      Authorization: `Bearer ${await accessToken()}`,
-      "Content-Type": "application/json",
-      ...init.headers,
-    },
-  });
+  const response = await fetch(
+    new URL(path, ensureTrailingSlash(baseURL)),
+    buildImportRequestInit(await accessToken(), init),
+  );
   const payload = await response.json().catch(() => ({})) as { error?: string };
   if (!response.ok) throw new ImportAPIError(payload.error ?? "api_unavailable", response.status);
   return payload as T;
+}
+
+export function buildImportRequestInit(accessTokenValue: string, init: RequestInit): RequestInit {
+  const headers = new Headers(init.headers);
+  headers.set("Authorization", `Bearer ${accessTokenValue}`);
+  headers.set("Content-Type", "application/json");
+  return { ...init, cache: "no-store", headers };
 }
 
 export function paginateManifestFiles(
